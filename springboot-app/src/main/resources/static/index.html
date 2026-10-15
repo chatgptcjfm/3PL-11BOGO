@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f6f8">
+  <meta name="description" content="3PL 센터의 결품·미배송 이슈와 종결 상태를 한 화면에서 확인하는 일일보고 대시보드">
+  <title>3PL 일일보고 | Control Tower</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="주 메뉴">
+      <a class="brand" href="#top" aria-label="3PL Control Tower 홈">
+        <span class="brand-mark">3</span>
+        <span class="brand-copy"><strong>control<span>tower</span></strong><small>3PL OPERATIONS</small></span>
+      </a>
+      <div class="sidebar-label">WORKSPACE</div>
+      <nav class="side-nav">
+        <a class="side-link is-active" href="#overview"><span class="nav-icon">◫</span><span>통합 현황</span><span class="nav-current"></span></a>
+        <a class="side-link" href="#issues"><span class="nav-icon">⌁</span><span>결품 · 미배송</span><span class="side-count" id="nav-issue-count">37</span></a>
+        <a class="side-link" href="#centers"><span class="nav-icon">◎</span><span>센터 현황</span></a>
+        <a class="side-link" href="#report-flow"><span class="nav-icon">▤</span><span>일일 보고서</span></a>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="help-card">
+          <span class="help-orbit">?</span>
+          <strong>처음 사용하시나요?</strong>
+          <p>표준 원인코드와 종결 기준을 확인하세요.</p>
+          <a href="#guide">운영 가이드 <span>↗</span></a>
+        </div>
+        <div class="user-card">
+          <span class="avatar">이</span>
+          <span class="user-meta"><strong>이정헌</strong><small>물류팀 · 관리자</small></span>
+          <span class="user-more">···</span>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-content" id="top">
+      <header class="topbar">
+        <div class="breadcrumb"><span>운영관리</span><span class="crumb-divider">/</span><strong>통합 현황</strong></div>
+        <div class="topbar-actions">
+          <span class="demo-badge"><i></i> DEMO DATA</span>
+          <button class="icon-button" type="button" aria-label="알림"><span class="bell-icon">♧</span><i class="notification-dot"></i></button>
+          <button class="top-user" type="button" aria-label="프로필"><span class="avatar avatar-small">이</span><span>이정헌</span><span class="chevron">⌄</span></button>
+        </div>
+      </header>
+
+      <div class="page-wrap">
+        <section class="page-heading" id="overview">
+          <div>
+            <div class="eyebrow"><span class="eyebrow-line"></span> DAILY OPERATIONS</div>
+            <h1>3PL 일일보고 <span class="heading-tag">통합 대시보드</span></h1>
+            <p class="page-subtitle">센터별 결품·미배송을 실시간으로 모아보고, 이슈를 끝까지 종결 관리합니다.</p>
+          </div>
+          <div class="heading-tools">
+            <div class="date-select"><span class="calendar-icon">▦</span><span id="today-label">2026년 10월 15일</span><span class="chevron">⌄</span></div>
+            <button class="button button-primary" id="open-issue-modal" type="button"><span class="plus">＋</span> 이슈 등록</button>
+          </div>
+        </section>
+
+        <section class="live-banner" aria-label="실시간 업데이트 상태">
+          <div class="banner-left">
+            <div class="live-mark"><span></span></div>
+            <div><div class="banner-kicker">LIVE OPERATIONS <span class="live-divider">·</span> 6개 센터 연결</div><div class="banner-title">오늘의 운영 현황을 <strong>한눈에 확인하세요.</strong></div></div>
+          </div>
+          <div class="banner-right"><span class="sync-icon">↻</span><span>마지막 데이터 취합</span><strong id="last-sync">방금 전</strong><span class="sync-separator"></span><span class="banner-date">센터 입력 즉시 반영</span></div>
+          <div class="banner-decoration banner-decoration-one"></div><div class="banner-decoration banner-decoration-two"></div>
+        </section>
+
+        <section class="kpi-grid" aria-label="주요 운영 지표">
+          <article class="kpi-card">
+            <div class="kpi-top"><span class="kpi-label">전체 출고 진행률</span><span class="kpi-icon kpi-icon-blue">↗</span></div>
+            <div class="kpi-value">98.4<span class="kpi-unit">%</span><span class="kpi-change positive">+1.2% <small>전일 대비</small></span></div>
+            <div class="progress-track"><span class="progress-fill progress-blue" style="width:98.4%"></span></div>
+            <div class="kpi-foot"><span>목표 98.0%</span><strong>목표 달성</strong></div>
+          </article>
+          <article class="kpi-card">
+            <div class="kpi-top"><span class="kpi-label">결품 이슈</span><span class="kpi-icon kpi-icon-red">!</span></div>
+            <div class="kpi-value">23<span class="kpi-unit">건</span><span class="kpi-change negative">+4 <small>전일 대비</small></span></div>
+            <div class="kpi-sparkline spark-red" aria-label="최근 결품 이슈 추이"><svg viewBox="0 0 180 34" preserveAspectRatio="none"><path d="M2 27 C18 22 22 26 38 20 S60 23 74 13 S95 20 110 14 S130 17 144 7 S164 13 178 3"/><path class="spark-area" d="M2 27 C18 22 22 26 38 20 S60 23 74 13 S95 20 110 14 S130 17 144 7 S164 13 178 3 L178 34 L2 34 Z"/></svg></div>
+            <div class="kpi-foot"><span>미해결 8건</span><strong class="text-red">확인 필요</strong></div>
+          </article>
+          <article class="kpi-card">
+            <div class="kpi-top"><span class="kpi-label">미배송 이슈</span><span class="kpi-icon kpi-icon-amber">↗</span></div>
+            <div class="kpi-value">14<span class="kpi-unit">건</span><span class="kpi-change negative">+2 <small>전일 대비</small></span></div>
+            <div class="kpi-sparkline spark-amber" aria-label="최근 미배송 이슈 추이"><svg viewBox="0 0 180 34" preserveAspectRatio="none"><path d="M2 23 C18 18 27 26 42 18 S62 13 76 18 S96 7 112 14 S132 10 146 17 S164 6 178 8"/><path class="spark-area" d="M2 23 C18 18 27 26 42 18 S62 13 76 18 S96 7 112 14 S132 10 146 17 S164 6 178 8 L178 34 L2 34 Z"/></svg></div>
+            <div class="kpi-foot"><span>미해결 5건</span><strong class="text-amber">추적 중</strong></div>
+          </article>
+          <article class="kpi-card kpi-card-closure">
+            <div class="kpi-top"><span class="kpi-label">오늘 종결 완료</span><span class="kpi-icon kpi-icon-green">✓</span></div>
+            <div class="kpi-value">29<span class="kpi-unit">건</span><span class="kpi-change positive">76.3% <small>종결률</small></span></div>
+            <div class="closure-visual"><div class="closure-dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span>37건 중 29건 해결</span></div>
+            <div class="kpi-foot"><span>완료일 기록 100%</span><strong class="text-green">종결 관리 중</strong></div>
+          </article>
+        </section>
+
+        <div class="content-grid">
+          <section class="panel issue-panel" id="issues">
+            <div class="panel-header">
+              <div><div class="section-eyebrow">ISSUE TRACKER <span class="live-mini"><i></i> LIVE</span></div><h2>결품 · 미배송 이슈 <span class="panel-count" id="issue-total">37</span></h2><p class="panel-description">센터별 이슈를 통합하고 처리상태와 완료일까지 추적합니다.</p></div>
+              <div class="panel-actions"><button class="button button-quiet" type="button" id="download-report"><span class="download-icon">↓</span> 보고서 내보내기</button><button class="more-button" type="button" aria-label="더 보기">···</button></div>
+            </div>
+            <div class="issue-toolbar">
+              <div class="filter-tabs" role="tablist" aria-label="이슈 상태 필터">
+                <button class="filter-tab is-selected" type="button" data-filter="all">전체 <span>37</span></button>
+                <button class="filter-tab" type="button" data-filter="결품">결품 <span>23</span></button>
+                <button class="filter-tab" type="button" data-filter="미배송">미배송 <span>14</span></button>
+              </div>
+              <label class="search-box"><span class="search-icon">⌕</span><input type="search" id="issue-search" placeholder="센터, 상품, 원인 검색" aria-label="이슈 검색"><kbd>⌘ K</kbd></label>
+            </div>
+            <div class="table-wrap">
+              <table class="issue-table">
+                <thead><tr><th>센터 · 상품</th><th>유형</th><th>수량</th><th>원인 코드</th><th>처리 상태</th><th>최종 업데이트</th><th><span class="sr-only">작업</span></th></tr></thead>
+                <tbody id="issue-rows">
+                  <tr data-type="결품" data-search="수도권 1센터 저당 그래놀라 재고 부족">
+                    <td><div class="product-cell"><span class="center-avatar avatar-blue">수</span><span><strong>수도권 1센터</strong><small>저당 그래놀라 300g</small></span></div></td><td><span class="type-pill type-stockout"><i></i>결품</span></td><td><strong class="quantity">48</strong><small class="unit-text">EA</small></td><td><span class="reason-code">재고 부족</span></td><td><span class="status-pill status-progress"><i></i>조치 중</span></td><td><span class="updated-time">10:42</span><small class="owner-text">박민지</small></td><td><button class="row-more" type="button" aria-label="수도권 1센터 이슈 상세">···</button></td>
+                  </tr>
+                  <tr data-type="미배송" data-search="부산 동부센터 주문 10482 배송 지연">
+                    <td><div class="product-cell"><span class="center-avatar avatar-purple">부</span><span><strong>부산 동부센터</strong><small>주문 #10482 · 3개 품목</small></span></div></td><td><span class="type-pill type-delivery"><i></i>미배송</span></td><td><strong class="quantity">12</strong><small class="unit-text">건</small></td><td><span class="reason-code">배송 지연</span></td><td><span class="status-pill status-waiting"><i></i>센터 확인 대기</span></td><td><span class="updated-time">10:36</span><small class="owner-text">김도현</small></td><td><button class="row-more" type="button" aria-label="부산 동부센터 이슈 상세">···</button></td>
+                  </tr>
+                  <tr data-type="결품" data-search="대전 메가센터 유기농 두유 입고 지연">
+                    <td><div class="product-cell"><span class="center-avatar avatar-orange">대</span><span><strong>대전 메가센터</strong><small>유기농 두유 190ml</small></span></div></td><td><span class="type-pill type-stockout"><i></i>결품</span></td><td><strong class="quantity">126</strong><small class="unit-text">EA</small></td><td><span class="reason-code">입고 지연</span></td><td><span class="status-pill status-open"><i></i>신규 접수</span></td><td><span class="updated-time">10:28</span><small class="owner-text">정유진</small></td><td><button class="row-more" type="button" aria-label="대전 메가센터 이슈 상세">···</button></td>
+                  </tr>
+                  <tr data-type="미배송" data-search="인천 허브 주문 10601 주소 오류">
+                    <td><div class="product-cell"><span class="center-avatar avatar-cyan">인</span><span><strong>인천 허브</strong><small>주문 #10601 · 1개 품목</small></span></div></td><td><span class="type-pill type-delivery"><i></i>미배송</span></td><td><strong class="quantity">3</strong><small class="unit-text">건</small></td><td><span class="reason-code">주소 확인</span></td><td><span class="status-pill status-progress"><i></i>조치 중</span></td><td><span class="updated-time">10:15</span><small class="owner-text">이정헌</small></td><td><button class="row-more" type="button" aria-label="인천 허브 이슈 상세">···</button></td>
+                  </tr>
+                  <tr data-type="결품" data-search="광주 서부센터 베이비 물티슈 발주 누락">
+                    <td><div class="product-cell"><span class="center-avatar avatar-green">광</span><span><strong>광주 서부센터</strong><small>베이비 물티슈 80매</small></span></div></td><td><span class="type-pill type-stockout"><i></i>결품</span></td><td><strong class="quantity">32</strong><small class="unit-text">EA</small></td><td><span class="reason-code">발주 누락</span></td><td><span class="status-pill status-closed"><i></i>종결 완료</span></td><td><span class="updated-time">09:58</span><small class="owner-text">최서윤</small></td><td><button class="row-more" type="button" aria-label="광주 서부센터 이슈 상세">···</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer"><span id="visible-count">5개 이슈 표시 중 <b>·</b> 샘플 데이터</span><button class="view-all" id="show-all-issues" type="button">모든 이슈 보기 <span>→</span></button></div>
+          </section>
+
+          <aside class="side-panels">
+            <section class="panel center-panel" id="centers">
+              <div class="compact-panel-head"><div><div class="section-eyebrow">CENTER STATUS</div><h2>센터별 현황</h2></div><button class="text-link" type="button" id="center-detail">상세 <span>→</span></button></div>
+              <div class="center-summary"><span class="center-online"><i></i> 6개 센터 정상 연결</span><span class="small-muted">업데이트 <b>방금 전</b></span></div>
+              <div class="center-list">
+                <div class="center-row"><div class="center-name"><span class="center-avatar avatar-blue">수</span><span><strong>수도권 1센터</strong><small>수도권</small></span></div><div class="center-metrics"><div class="center-bar"><span style="width:97%"></span></div><small><b>97%</b> <i class="center-issue-count issue-count-red">8 이슈</i></small></div></div>
+                <div class="center-row"><div class="center-name"><span class="center-avatar avatar-cyan">인</span><span><strong>인천 허브</strong><small>수도권</small></span></div><div class="center-metrics"><div class="center-bar"><span style="width:99%"></span></div><small><b>99%</b> <i class="center-issue-count issue-count-amber">4 이슈</i></small></div></div>
+                <div class="center-row"><div class="center-name"><span class="center-avatar avatar-orange">대</span><span><strong>대전 메가센터</strong><small>충청권</small></span></div><div class="center-metrics"><div class="center-bar"><span style="width:95%"></span></div><small><b>95%</b> <i class="center-issue-count issue-count-red">9 이슈</i></small></div></div>
+                <div class="center-row"><div class="center-name"><span class="center-avatar avatar-purple">부</span><span><strong>부산 동부센터</strong><small>영남권</small></span></div><div class="center-metrics"><div class="center-bar"><span style="width:98%"></span></div><small><b>98%</b> <i class="center-issue-count issue-count-amber">6 이슈</i></small></div></div>
+                <div class="center-row"><div class="center-name"><span class="center-avatar avatar-green">광</span><span><strong>광주 서부센터</strong><small>호남권</small></span></div><div class="center-metrics"><div class="center-bar"><span style="width:100%"></span></div><small><b>100%</b> <i class="center-issue-count issue-count-green">3 이슈</i></small></div></div>
+                <div class="center-row"><div class="center-name"><span class="center-avatar avatar-pink">대</span><span><strong>대구 북부센터</strong><small>영남권</small></span></div><div class="center-metrics"><div class="center-bar"><span style="width:99%"></span></div><small><b>99%</b> <i class="center-issue-count issue-count-amber">7 이슈</i></small></div></div>
+              </div>
+              <div class="center-legend"><span><i class="legend-dot legend-green"></i> 정상</span><span><i class="legend-dot legend-amber"></i> 확인 필요</span><span><i class="legend-dot legend-red"></i> 긴급</span></div>
+            </section>
+            <section class="panel report-panel" id="report-flow">
+              <div class="compact-panel-head"><div><div class="section-eyebrow">REPORT TRANSFORMATION</div><h2>보고 체계 개선</h2></div><span class="mini-badge">TO-BE</span></div>
+              <div class="transform-row"><span class="transform-icon transform-icon-old">12</span><span class="transform-copy"><strong>12개 시트 → 3개 통합</strong><small>결품 5개 탭을 센터 컬럼으로 통합</small></span><span class="transform-arrow">↗</span></div>
+              <div class="transform-row"><span class="transform-icon transform-icon-live"><i></i></span><span class="transform-copy"><strong>T-2 보고 → 실시간 취합</strong><small>센터 입력 즉시 반영 · 즉시 확인</small></span><span class="transform-arrow">↗</span></div>
+              <div class="transform-row"><span class="transform-icon transform-icon-close">✓</span><span class="transform-copy"><strong>원인 표준화 · 종결 추적</strong><small>처리 상태와 완료일을 함께 기록</small></span><span class="transform-arrow">↗</span></div>
+              <div class="report-note"><span>✦</span> 대형 이슈를 먼저 보여주고 대응 시간을 줄입니다.</div>
+            </section>
+          </aside>
+        </div>
+
+        <section class="bottom-note" id="guide"><span class="note-mark">↗</span><div><strong>미해결 이슈를 놓치지 마세요.</strong><span>표준 원인 코드, 담당자, 처리 상태, 완료일을 한 곳에서 관리합니다.</span></div><button type="button" class="note-link" id="guide-action">운영 가이드 <span>→</span></button></section>
+        <footer class="page-footer"><span>3PL CONTROL TOWER <b>·</b> 0차 화면 검증용</span><span>실제 센터 연동 전 샘플 데이터로 구성되어 있습니다.</span></footer>
+      </div>
+    </main>
+  </div>
+
+  <dialog class="issue-dialog" id="issue-dialog" aria-labelledby="dialog-title">
+    <form id="issue-form" method="dialog">
+      <div class="dialog-head"><div><div class="section-eyebrow">NEW OPERATIONAL ISSUE</div><h2 id="dialog-title">새 이슈 등록</h2></div><button class="dialog-close" type="button" id="close-issue-modal" aria-label="닫기">×</button></div>
+      <p class="dialog-description">센터에서 공유된 이슈를 통합 목록에 등록합니다. 현재는 화면 검증용 임시 입력입니다.</p>
+      <div class="form-grid">
+        <label>센터<select name="center" required><option value="">센터 선택</option><option>수도권 1센터</option><option>인천 허브</option><option>대전 메가센터</option><option>부산 동부센터</option><option>광주 서부센터</option><option>대구 북부센터</option></select></label>
+        <label>이슈 유형<select name="type" required><option value="결품">결품</option><option value="미배송">미배송</option></select></label>
+        <label class="form-wide">상품 / 주문 정보<input name="item" required maxlength="80" placeholder="예: 상품명 또는 주문번호"></label>
+        <label>수량<input name="quantity" required type="number" min="1" max="99999" value="1"></label>
+        <label>원인 코드<select name="reason" required><option>재고 부족</option><option>입고 지연</option><option>발주 누락</option><option>배송 지연</option><option>주소 확인</option><option>피킹 오류</option><option>기타</option></select></label>
+        <label>담당자<input name="owner" required maxlength="30" placeholder="담당자 이름"></label>
+        <label>긴급도<select name="priority"><option>일반</option><option>주의</option><option>긴급</option></select></label>
+      </div>
+      <div class="dialog-actions"><button class="button button-quiet" type="button" id="cancel-issue">취소</button><button class="button button-primary" type="submit">이슈 등록 <span>→</span></button></div>
+    </form>
+  </dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="/js/app.js" defer></script>
+</body>
+</html>
