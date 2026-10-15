@@ -29,5 +29,10 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Java / Maven
+**/target/
+*.class
+.spring-boot-starter.log
+
 # misc
 .DS_Store
