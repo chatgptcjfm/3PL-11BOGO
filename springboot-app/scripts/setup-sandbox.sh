@@ -9,7 +9,7 @@ fi
 
 export DEBIAN_FRONTEND=noninteractive
 "${SUDO[@]}" apt-get update
-"${SUDO[@]}" apt-get install -y curl ca-certificates tar gzip maven mariadb-server mariadb-client
+"${SUDO[@]}" apt-get install -y curl ca-certificates tar gzip openssl maven mariadb-server mariadb-client
 
 if [[ ! -x /opt/jdk17/bin/java ]]; then
   archive="$(mktemp --suffix=.tar.gz)"
