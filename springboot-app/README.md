@@ -12,6 +12,7 @@
 
 ## 엔드포인트
 
+- `GET /` — 3PL 일일보고 통합 대시보드 화면
 - `GET /api/health` — Spring Boot 응답과 MariaDB `SELECT VERSION()`을 함께 확인
 - `GET /api/excel/sample` — 샘플 `.xlsx` 파일 다운로드
 - `POST /api/excel/analyze` — `multipart/form-data`의 `file` 필드로 `.xlsx` 또는 `.xlsm` 업로드 후 시트/행 미리보기 JSON 반환 (10 MB 제한)
