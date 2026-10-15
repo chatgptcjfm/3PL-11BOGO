@@ -16,6 +16,12 @@
 - `GET /api/excel/sample` — 샘플 `.xlsx` 파일 다운로드
 - `POST /api/excel/analyze` — `multipart/form-data`의 `file` 필드로 `.xlsx` 또는 `.xlsm` 업로드 후 시트/행 미리보기 JSON 반환 (10 MB 제한)
 
+## 3PL 일일보고 화면 초안
+
+`GET /`에서 통합 대시보드를 제공합니다. PPTX 1번 슬라이드의 개선 방향을 반영해 출고 KPI, 결품/미배송 통합 이슈 목록, 원인 코드/처리 상태, 6개 센터 현황, `12개 시트 → 3개 통합` 개선 요약을 배치했습니다. 검색, 유형 필터, 이슈 등록 모달, Excel 샘플 다운로드는 화면 검증용으로 동작합니다.
+
+현재 KPI와 센터/이슈 목록은 모두 샘플 데이터입니다. 화면에서 등록한 이슈는 브라우저 상태에만 반영되며 새로고침하면 사라집니다. Google Sheets/Looker Studio 연동, 센터 계정 입력, MariaDB 저장, 실시간 동기화와 실제 종결 관리 로직은 구현하지 않았으며 1차 개발 범위로 남겨 두었습니다.
+
 ## 샌드박스 재구축
 
 샌드박스가 초기화된 뒤 `/home/user/webapp/springboot-app`에서 실행합니다. Debian 기반 Linux, sudo 권한, 네트워크 접근이 필요합니다.
