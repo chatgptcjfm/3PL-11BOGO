@@ -5,6 +5,8 @@
   const issueTotal = document.getElementById('issue-total');
   const navIssueCount = document.getElementById('nav-issue-count');
   const visibleCount = document.getElementById('visible-count');
+  const reportDateInput = document.getElementById('report-date');
+  const reportDateLabel = document.getElementById('today-label');
   const dialog = document.getElementById('issue-dialog');
   const form = document.getElementById('issue-form');
   const toast = document.getElementById('toast');
@@ -14,11 +16,46 @@
 
   const initialCounts = { all: 37, 결품: 23, 미배송: 14 };
 
-  const nowLabel = () => new Intl.DateTimeFormat('ko-KR', {
-    year: 'numeric', month: 'long', day: 'numeric'
-  }).format(new Date());
+  const formatDateInputValue = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
-  document.getElementById('today-label').textContent = nowLabel();
+  const formatReportDate = (value) => {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Intl.DateTimeFormat('ko-KR', {
+      year: 'numeric', month: 'long', day: 'numeric', weekday: 'short'
+    }).format(new Date(year, month - 1, day));
+  };
+
+  function setReportDate(value, announce = false) {
+    if (!value) return;
+    reportDateInput.value = value;
+    reportDateLabel.textContent = formatReportDate(value);
+    document.getElementById('visible-count').setAttribute('aria-label',
+      `보고 기준일 ${reportDateLabel.textContent}. 날짜별 실제 데이터는 아직 연결되지 않았습니다.`);
+    try {
+      window.localStorage.setItem('3pl-report-date', value);
+    } catch (_) {
+      // Keep the date selection functional when browser storage is unavailable.
+    }
+    if (announce) {
+      showToast(`보고 기준일을 ${reportDateLabel.textContent}(으)로 변경했습니다. 현재 지표와 목록은 샘플 데이터입니다.`);
+    }
+  }
+
+  let savedReportDate = '';
+  try {
+    savedReportDate = window.localStorage.getItem('3pl-report-date') || '';
+  } catch (_) {
+    // Use today's date when browser storage is unavailable.
+  }
+  setReportDate(/^\d{4}-\d{2}-\d{2}$/.test(savedReportDate)
+    ? savedReportDate
+    : formatDateInputValue(new Date()));
+  reportDateInput.addEventListener('change', () => setReportDate(reportDateInput.value, true));
 
   function showToast(message) {
     toast.textContent = message;
@@ -38,7 +75,7 @@
       row.hidden = !show;
       if (show) visible += 1;
     });
-    visibleCount.innerHTML = `${visible}개 이슈 표시 중 <b>·</b> 샘플 데이터`;
+    visibleCount.textContent = `${visible}개 이슈 표시 중 · 샘플 데이터 (날짜별 실데이터 미연동)`;
   }
 
   function updateCounts() {
