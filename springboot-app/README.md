@@ -14,14 +14,17 @@
 
 - `GET /` — 3PL 일일보고 통합 대시보드 화면
 - `GET /api/health` — Spring Boot 응답과 MariaDB `SELECT VERSION()`을 함께 확인
+- `GET /api/reports/dates` — 등록된 보고일 목록
+- `GET /api/reports/{yyyy-MM-dd}` — 날짜별 KPI, 센터 및 익명 이슈 집계
+- `POST /api/reports/upload` — 관리자 암호(`X-Report-Import-Password`) 검증 후 10MB 이하 `.xlsb` 일일보고를 DB에 누적
 - `GET /api/excel/sample` — 샘플 `.xlsx` 파일 다운로드
 - `POST /api/excel/analyze` — `multipart/form-data`의 `file` 필드로 `.xlsx` 또는 `.xlsm` 업로드 후 시트/행 미리보기 JSON 반환 (10 MB 제한)
 
 ## 3PL 일일보고 화면 초안
 
-`GET /`에서 통합 대시보드를 제공합니다. PPTX 1번 슬라이드의 개선 방향을 반영해 출고 KPI, 결품/미배송 통합 이슈 목록, 원인 코드/처리 상태, 6개 센터 현황, `12개 시트 → 3개 통합` 개선 요약을 배치했습니다. 검색, 유형 필터, 이슈 등록 모달, Excel 샘플 다운로드는 화면 검증용으로 동작합니다. 날짜 선택기에서 보고 기준일을 바꾸면 선택 날짜가 표시되고 브라우저에 기억됩니다.
+`GET /`에서 통합 대시보드를 제공합니다. 출고 KPI, 날짜별 결품/미배송 집계, 센터별 현황을 표시합니다. 보고일 선택기 옆의 `엑셀 보고서 등록` 버튼으로 XLSB 파일을 등록할 수 있으며, 파일 크기는 10MB 이하입니다. 관리자 암호는 `.env`의 `REPORT_IMPORT_PASSWORD`에 저장하고 화면에서는 입력값을 기억하지 않습니다.
 
-현재 KPI와 센터/이슈 목록은 모두 샘플 데이터이며, 날짜를 바꿔도 일자별 실제 데이터 조회는 아직 연결되지 않았습니다. 선택한 날짜는 브라우저 `localStorage`에 저장됩니다. 화면에서 등록한 이슈는 브라우저 상태에만 반영되며 새로고침하면 사라집니다. Google Sheets/Looker Studio 연동, 센터 계정 입력, MariaDB 저장, 실시간 동기화와 실제 종결 관리 로직은 구현하지 않았으며 1차 개발 범위로 남겨 두었습니다.
+업로드된 일일보고의 요약 KPI와 센터별 출고/미배송 집계를 MariaDB에 보고일별로 누적합니다. 날짜 선택기는 실제 등록된 보고일을 조회하며, 같은 날짜 파일을 다시 가져오면 해당 날짜 집계만 갱신합니다. 원본 엑셀, 거래처명, 담당자명, 상세 메모는 DB나 대시보드에 저장하지 않고 원인 코드는 제한된 표준 목록으로 집계합니다. Google Sheets/Looker Studio 실시간 연동과 처리상태·완료일 입력은 아직 구현하지 않았습니다.
 
 ## 샌드박스 재구축
 
@@ -34,9 +37,21 @@
 ./scripts/start-local.sh
 ```
 
-`setup-sandbox.sh`는 Maven, MariaDB server/client 및 Java 17을 준비하고 MariaDB 서비스를 시작합니다. `create-dev-env.sh`는 무작위 로컬 DB 비밀번호를 `.env`에 저장하며 파일 권한은 `600`입니다. `.env`는 Git에서 제외됩니다. `configure-dev-db.sh`는 해당 설정으로 개발 DB와 최소 권한의 전용 계정을 생성합니다.
+`setup-sandbox.sh`는 Maven, MariaDB server/client 및 Java 17을 준비하고 MariaDB 서비스를 시작합니다. `create-dev-env.sh`는 무작위 DB 비밀번호와 보고서 업로드 암호를 `.env`에 저장하며 파일 권한은 `600`입니다. `.env`는 Git에서 제외됩니다. `configure-dev-db.sh`는 해당 설정으로 개발 DB와 전용 계정을 생성합니다. 앱 시작 시 `schema.sql`이 누적 보고용 테이블을 준비합니다.
 
 실행 후 주소: `http://127.0.0.1:3000`
+
+### XLSB 일일보고 누적 등록
+
+최초 한 번 `python3 -m venv .venv-import && .venv-import/bin/pip install -r requirements-import.txt`로 XLSB 판독기를 준비한 뒤, `springboot-app/`에서 다음처럼 보고서를 등록합니다.
+
+```bash
+.venv-import/bin/python scripts/import-reports.py \
+  "/home/user/uploaded_files/(LGL) 깨끗한나라 3PL센터 일일보고_26.10.15.xlsb" \
+  "/home/user/uploaded_files/(LGL) 깨끗한나라 3PL센터 일일보고_26.10.17.xlsb"
+```
+
+대시보드의 `엑셀 보고서 등록` 버튼은 같은 `scripts/import-reports.py`를 호출하며, 관리자 업로드 암호는 서버의 `.env`에 둡니다. 등록은 보고일 기준으로 멱등 처리됩니다. 동일 날짜 파일은 재등록 시 해당 날짜를 갱신하고, 새 보고일은 누적됩니다. 원본 파일은 임시 경로에서 처리 후 삭제하며 저장소에 복사하지 않습니다.
 
 ```bash
 curl -fsS http://127.0.0.1:3000/api/health
