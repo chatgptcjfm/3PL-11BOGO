@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 from collections import Counter
 from datetime import date, datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from pyxlsb import open_workbook
@@ -56,9 +57,23 @@ def cell_map(row) -> dict[int, object]:
     return {cell.c + 1: cell.v for cell in row if cell.v not in (None, "")}
 
 
-def to_date(value: object) -> date | None:
+def to_date(value: object, default_year: int | None = None) -> date | None:
     if isinstance(value, (int, float)):
         return (datetime(1899, 12, 30) + timedelta(days=float(value))).date()
+    if isinstance(value, str):
+        text = value.strip()
+        for pattern in ("%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d"):
+            try:
+                return datetime.strptime(text, pattern).date()
+            except ValueError:
+                pass
+        if default_year is not None:
+            for pattern in ("%m/%d", "%m-%d", "%m.%d"):
+                try:
+                    parsed = datetime.strptime(text, pattern)
+                    return date(default_year, parsed.month, parsed.day)
+                except ValueError:
+                    pass
     return None
 
 
@@ -83,7 +98,26 @@ def sql_rate(value: object) -> str:
         return "0"
 
 
-def extract_report(path: Path) -> tuple[date, dict, list[dict], list[dict]]:
+def as_decimal(value: object) -> Decimal:
+    if value in (None, ""):
+        return Decimal("0")
+    try:
+        return Decimal(str(value)).quantize(Decimal("0.01"))
+    except (InvalidOperation, ValueError):
+        return Decimal("0")
+
+
+def sql_decimal(value: object) -> str:
+    return format(as_decimal(value), "f")
+
+
+def sql_nullable_text(value: object) -> str:
+    if value in (None, ""):
+        return "NULL"
+    return sql_text(str(value))
+
+
+def extract_report(path: Path) -> tuple[date, dict, list[dict], list[dict], list[dict], list[dict]]:
     with open_workbook(str(path)) as workbook:
         if not workbook.sheets:
             raise ValueError(f"No sheets in {path.name}")
@@ -108,6 +142,8 @@ def extract_report(path: Path) -> tuple[date, dict, list[dict], list[dict]]:
         }
 
         centers = []
+        resources = []
+        shortage_details = []
         issue_groups: Counter[tuple[str, str, str]] = Counter()
         issue_boxes: Counter[tuple[str, str, str]] = Counter()
 
@@ -121,15 +157,28 @@ def extract_report(path: Path) -> tuple[date, dict, list[dict], list[dict]]:
                     continue
                 with workbook.get_sheet(sheet_name) as issue_sheet:
                     issue_rows = list(issue_sheet.rows(sparse=True))
-                for row in issue_rows[6:]:
+                for source_row, row in enumerate(issue_rows[6:], start=7):
                     cells = cell_map(row)
-                    event_day = to_date(cells.get(3))
-                    if event_day != report_day:
+                    if not any(cells.get(column) not in (None, "") for column in (3, 4, 5, 11, 13, 15)):
                         continue
-                    issue_type = str(cells.get(7) or "기타").strip()
+                    event_day = to_date(cells.get(3), report_day.year)
+                    issue_type = str(cells.get(7) or "결품").strip()
+                    shortage_details.append({
+                        "event_date": event_day,
+                        "center_name": center_name,
+                        "issue_type": issue_type[:40],
+                        "customer_name": str(cells.get(4) or "").strip(),
+                        "shortage_boxes": as_decimal(cells.get(5)),
+                        "process_result": str(cells.get(11) or "").strip(),
+                        "remarks": str(cells.get(13) or "").strip(),
+                        "source_sheet": sheet_name,
+                        "source_row": source_row,
+                    })
+                    if event_day not in {report_day, report_day + timedelta(days=1)}:
+                        continue
                     if issue_type not in {"결품", "미배송"}:
                         issue_type = "기타"
-                    cause = str(cells.get(13) or "기타").strip()
+                    cause = str(cells.get(15) or cells.get(14) or cells.get(13) or "기타").strip()
                     if cause not in ALLOWED_CAUSES:
                         cause = "기타"
                     key = (center_name, issue_type[:40], cause[:80])
@@ -156,6 +205,18 @@ def extract_report(path: Path) -> tuple[date, dict, list[dict], list[dict]]:
             with workbook.get_sheet(sheet_name) as center_sheet:
                 center_rows = list(center_sheet.rows(sparse=True))
             by_excel_row = {row[0].r + 1: row for row in center_rows if row}
+            resource_row = cell_map(by_excel_row.get(11, []))
+            resources.append({
+                "center_name": center_name,
+                "row_label": str(resource_row.get(3) or "내용").strip(),
+                "base_count": as_int(resource_row.get(4)),
+                "area_pyeong": as_decimal(resource_row.get(5)),
+                "office_staff": as_int(resource_row.get(6)),
+                "field_staff": as_int(resource_row.get(7)),
+                "forklift_count": as_int(resource_row.get(8)),
+                "hpt_count": as_int(resource_row.get(9)),
+                "remarks": str(resource_row.get(10) or "").strip(),
+            })
             daily = cell_map(by_excel_row.get(16, []))
             unshipped = cell_map(by_excel_row.get(35, []))
             if daily.get(3) != "당일":
@@ -182,12 +243,12 @@ def extract_report(path: Path) -> tuple[date, dict, list[dict], list[dict]]:
     ]
     if not centers:
         raise ValueError(f"No center KPI sheets found: {path.name}")
-    return report_day, summary, centers, issues
+    return report_day, summary, centers, issues, resources, shortage_details
 
 
-def build_sql(reports: list[tuple[date, dict, list[dict], list[dict]]]) -> str:
+def build_sql(reports: list[tuple[date, dict, list[dict], list[dict], list[dict], list[dict]]]) -> str:
     statements = ["START TRANSACTION;"]
-    for report_day, summary, centers, issues in reports:
+    for report_day, summary, centers, issues, resources, shortage_details in reports:
         day = sql_text(report_day.isoformat())
         statements.append(
             "INSERT INTO daily_report_summary "
@@ -215,6 +276,30 @@ def build_sql(reports: list[tuple[date, dict, list[dict], list[dict]]]) -> str:
                 "(report_date, center_name, issue_type, cause_code, issue_count, box_count) VALUES "
                 f"({day}, {sql_text(issue['center_name'])}, {sql_text(issue['issue_type'])}, "
                 f"{sql_text(issue['cause_code'])}, {sql_num(issue['issue_count'])}, {sql_num(issue['box_count'])});"
+            )
+
+        statements.append(f"DELETE FROM daily_report_resource WHERE report_date={day};")
+        for resource in resources:
+            statements.append(
+                "INSERT INTO daily_report_resource "
+                "(report_date, center_name, row_label, base_count, area_pyeong, office_staff, field_staff, forklift_count, hpt_count, remarks) VALUES "
+                f"({day}, {sql_text(resource['center_name'])}, {sql_text(resource['row_label'])}, "
+                f"{sql_num(resource['base_count'])}, {sql_decimal(resource['area_pyeong'])}, "
+                f"{sql_num(resource['office_staff'])}, {sql_num(resource['field_staff'])}, "
+                f"{sql_num(resource['forklift_count'])}, {sql_num(resource['hpt_count'])}, "
+                f"{sql_nullable_text(resource['remarks'])});"
+            )
+
+        statements.append(f"DELETE FROM daily_report_shortage_detail WHERE report_date={day};")
+        for detail in shortage_details:
+            event_day = sql_text(detail['event_date'].isoformat()) if detail['event_date'] else "NULL"
+            statements.append(
+                "INSERT INTO daily_report_shortage_detail "
+                "(report_date, event_date, center_name, issue_type, customer_name, shortage_boxes, process_result, remarks, source_sheet, source_row) VALUES "
+                f"({day}, {event_day}, {sql_text(detail['center_name'])}, {sql_text(detail['issue_type'])}, "
+                f"{sql_text(detail['customer_name'])}, {sql_decimal(detail['shortage_boxes'])}, "
+                f"{sql_nullable_text(detail['process_result'])}, {sql_nullable_text(detail['remarks'])}, "
+                f"{sql_text(detail['source_sheet'])}, {sql_num(detail['source_row'])});"
             )
     statements.append("COMMIT;")
     return "\n".join(statements) + "\n"
@@ -257,8 +342,11 @@ def main() -> None:
         except FileNotFoundError:
             pass
 
-    for report_day, _, centers, issues in reports:
-        print(f"Imported {report_day.isoformat()}: {len(centers)} centers, {len(issues)} anonymized issue groups")
+    for report_day, _, centers, issues, resources, shortage_details in reports:
+        print(
+            f"Imported {report_day.isoformat()}: {len(centers)} centers, {len(resources)} resource rows, "
+            f"{len(issues)} issue groups, {len(shortage_details)} shortage detail rows"
+        )
 
 
 if __name__ == "__main__":

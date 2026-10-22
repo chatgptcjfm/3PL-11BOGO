@@ -84,10 +84,56 @@ public class DailyReportController {
                         resultSet.getInt("box_count")),
                 date);
 
-        return new DailyReport(date, summary, centers, issues);
+        List<Resource> resources = jdbcTemplate.query(
+                """
+                SELECT center_name, row_label, base_count, area_pyeong, office_staff, field_staff,
+                       forklift_count, hpt_count, remarks
+                FROM daily_report_resource
+                WHERE report_date = ?
+                ORDER BY center_name
+                """,
+                (resultSet, rowNumber) -> new Resource(
+                        resultSet.getString("center_name"),
+                        resultSet.getString("row_label"),
+                        resultSet.getInt("base_count"),
+                        resultSet.getBigDecimal("area_pyeong"),
+                        resultSet.getInt("office_staff"),
+                        resultSet.getInt("field_staff"),
+                        resultSet.getInt("forklift_count"),
+                        resultSet.getInt("hpt_count"),
+                        resultSet.getString("remarks")),
+                date);
+
+        List<ShortageDetail> shortageDetails = jdbcTemplate.query(
+                """
+                SELECT event_date, center_name, issue_type, customer_name, shortage_boxes, process_result, remarks
+                FROM daily_report_shortage_detail
+                WHERE report_date = ?
+                ORDER BY event_date, center_name, source_row
+                """,
+                (resultSet, rowNumber) -> {
+                    java.sql.Date eventDate = resultSet.getDate("event_date");
+                    return new ShortageDetail(
+                            eventDate == null ? null : eventDate.toLocalDate(),
+                            resultSet.getString("center_name"),
+                            resultSet.getString("issue_type"),
+                            resultSet.getString("customer_name"),
+                            resultSet.getBigDecimal("shortage_boxes"),
+                            resultSet.getString("process_result"),
+                            resultSet.getString("remarks"));
+                },
+                date);
+
+        return new DailyReport(date, summary, centers, issues, resources, shortageDetails);
     }
 
-    public record DailyReport(LocalDate reportDate, Summary summary, List<Center> centers, List<Issue> issues) {}
+    public record DailyReport(
+            LocalDate reportDate,
+            Summary summary,
+            List<Center> centers,
+            List<Issue> issues,
+            List<Resource> resources,
+            List<ShortageDetail> shortageDetails) {}
 
     public record Summary(
             int orderBoxes,
@@ -105,4 +151,24 @@ public class DailyReportController {
             int unshippedBoxes) {}
 
     public record Issue(String centerName, String issueType, String causeCode, int issueCount, int boxCount) {}
+
+    public record Resource(
+            String centerName,
+            String rowLabel,
+            int baseCount,
+            BigDecimal areaPyeong,
+            int officeStaff,
+            int fieldStaff,
+            int forkliftCount,
+            int hptCount,
+            String remarks) {}
+
+    public record ShortageDetail(
+            LocalDate eventDate,
+            String centerName,
+            String issueType,
+            String customerName,
+            BigDecimal shortageBoxes,
+            String processResult,
+            String remarks) {}
 }

@@ -2,10 +2,13 @@
   const reportDateInput = document.getElementById('report-date');
   const reportDateLabel = document.getElementById('today-label');
   const centerReportDate = document.getElementById('center-report-date');
-  const issueRows = document.getElementById('issue-rows');
+  const resourceReportDate = document.getElementById('resource-report-date');
   const centerList = document.getElementById('center-list');
+  const issueRows = document.getElementById('issue-rows');
   const searchInput = document.getElementById('issue-search');
   const filterButtons = [...document.querySelectorAll('.filter-tab')];
+  const dashboardTabs = [...document.querySelectorAll('.dashboard-tab')];
+  const centerTabs = [...document.querySelectorAll('.center-tab')];
   const toast = document.getElementById('toast');
   const uploadOverlay = document.getElementById('report-upload-overlay');
   const uploadForm = document.getElementById('report-upload-form');
@@ -14,9 +17,13 @@
   const uploadPasswordInput = document.getElementById('report-upload-password');
   const uploadStatus = document.getElementById('report-upload-status');
   const uploadSubmitButton = document.getElementById('submit-report-upload');
+  const causeDetailOverlay = document.getElementById('cause-detail-overlay');
   let activeFilter = 'all';
   let currentReport = null;
+  let currentCenters = [];
+  let activeCenterName = '수도권센터';
   let toastTimer;
+  let causeDialogTrigger = null;
 
   const numberFormat = new Intl.NumberFormat('ko-KR');
   const percentFormat = new Intl.NumberFormat('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -28,6 +35,17 @@
     '전라센터': 'avatar-green',
     '제주센터': 'avatar-cyan'
   };
+  const centerOrder = [
+    '수도권센터',
+    '경남센터(생활)',
+    '경남센터(제지)',
+    '경북센터',
+    '전라센터',
+    '제주센터'
+  ];
+  function centerUnit(centerName) {
+    return centerName === '경남센터(제지)' ? 'KG' : 'BOX';
+  }
 
   function formatDate(value) {
     const [year, month, day] = value.split('-').map(Number);
@@ -44,6 +62,33 @@
       return option;
     });
     reportDateInput.replaceChildren(...options);
+  }
+
+  function formatCauseName(causeName) {
+    return causeName || '미분류';
+  }
+
+  function showCauseDetails(issue, trigger) {
+    document.getElementById('cause-detail-title').textContent = formatCauseName(issue.causeCode);
+    document.getElementById('cause-detail-name').textContent = formatCauseName(issue.causeCode);
+    document.getElementById('cause-detail-date').textContent = currentReport?.reportDate || '—';
+    document.getElementById('cause-detail-center').textContent = issue.centerName;
+    document.getElementById('cause-detail-type').textContent = issue.issueType;
+    document.getElementById('cause-detail-count').textContent = `${numberFormat.format(issue.issueCount)}건`;
+    document.getElementById('cause-detail-boxes').textContent = `${numberFormat.format(issue.boxCount)} ${centerUnit(issue.centerName)}`;
+    causeDialogTrigger = trigger;
+    document.getElementById('cause-detail-overlay').hidden = false;
+    document.body.classList.add('cause-detail-open');
+    document.getElementById('close-cause-detail').focus();
+  }
+
+  function closeCauseDetails() {
+    const overlay = document.getElementById('cause-detail-overlay');
+    if (overlay.hidden) return;
+    overlay.hidden = true;
+    document.body.classList.remove('cause-detail-open');
+    if (causeDialogTrigger?.isConnected) causeDialogTrigger.focus();
+    causeDialogTrigger = null;
   }
 
   function showToast(message) {
@@ -65,7 +110,6 @@
     setMetric('unshipped-boxes', '—');
     document.getElementById('delivery-progress').style.width = '0%';
     document.getElementById('delivery-rate-status').textContent = '보고 없음';
-    document.getElementById('connected-center-count').textContent = '보고 없음';
     document.getElementById('issue-total').textContent = '0';
     document.getElementById('nav-issue-count').textContent = '0';
     document.querySelector('[data-filter="all"] span').textContent = '0';
@@ -74,9 +118,11 @@
     document.querySelector('[data-filter="기타"] span').textContent = '0';
     document.getElementById('data-warning').hidden = true;
     document.getElementById('visible-count').textContent = message;
-    centerList.replaceChildren();
+    renderCenters([]);
     issueRows.replaceChildren();
-    centerReportDate.textContent = reportDateInput.value ? formatDate(reportDateInput.value) : '—';
+    const currentDate = reportDateInput.value ? formatDate(reportDateInput.value) : '—';
+    centerReportDate.textContent = currentDate;
+    resourceReportDate.textContent = currentDate;
   }
 
   function updateKpis(summary) {
@@ -89,23 +135,71 @@
     document.getElementById('delivery-rate-status').textContent = deliveryRate >= 98 ? '목표 달성' : '확인 필요';
   }
 
-  function renderCenters(centers) {
-    centerList.replaceChildren();
-    centers.forEach((center) => {
-      const row = document.createElement('div');
-      row.className = 'center-row';
+  function renderActiveCenter() {
+    const center = currentCenters.find((item) => item.centerName === activeCenterName);
+    const activeTab = centerTabs.find((tab) => tab.dataset.centerName === activeCenterName);
+    const panel = document.getElementById('active-center-panel');
+    const avatar = document.getElementById('active-center-avatar');
+    const centerName = document.getElementById('active-center-name');
+    const statusLine = document.getElementById('center-status-line');
+    panel.setAttribute('aria-labelledby', activeTab?.id || centerTabs[0].id);
+    centerName.textContent = activeCenterName;
+    avatar.className = `center-avatar ${centerStyles[activeCenterName] || 'avatar-blue'}`;
+    avatar.textContent = activeCenterName.slice(0, 1);
+    const unit = centerUnit(activeCenterName);
+    ['center-order-unit', 'center-delivered-unit', 'center-shortage-unit', 'center-unshipped-unit']
+      .forEach((id) => setMetric(id, unit));
 
+    if (!center) {
+      statusLine.textContent = '선택한 보고일의 센터 데이터가 없습니다.';
+      setMetric('center-order-boxes', '—');
+      setMetric('center-delivered-boxes', '—');
+      setMetric('center-shortage-boxes', '—');
+      setMetric('center-unshipped-boxes', '—');
+      setMetric('center-delivery-rate', '—');
+      document.getElementById('center-delivery-progress').style.width = '0%';
+      return;
+    }
+
+    const deliveryRate = Math.min(100, Math.max(0, Number(center.deliveryRate || 0) * 100));
+    statusLine.textContent = `${numberFormat.format(center.deliveredBoxes)} / ${numberFormat.format(center.orderBoxes)} ${unit} 출고 완료`;
+    setMetric('center-order-boxes', numberFormat.format(center.orderBoxes));
+    setMetric('center-delivered-boxes', numberFormat.format(center.deliveredBoxes));
+    setMetric('center-shortage-boxes', numberFormat.format(center.shortageBoxes));
+    setMetric('center-unshipped-boxes', numberFormat.format(center.unshippedBoxes));
+    setMetric('center-delivery-rate', `${percentFormat.format(deliveryRate)}%`);
+    const progress = document.getElementById('center-delivery-progress');
+    progress.style.width = `${deliveryRate}%`;
+    progress.style.background = deliveryRate < 98 ? '#e67570' : deliveryRate < 99.5 ? '#dbad5b' : '#5e9c7c';
+  }
+
+  function selectCenter(centerName) {
+    activeCenterName = centerName;
+    centerTabs.forEach((tab) => {
+      const isActive = tab.dataset.centerName === activeCenterName;
+      tab.setAttribute('aria-selected', String(isActive));
+      tab.tabIndex = isActive ? 0 : -1;
+    });
+    renderActiveCenter();
+  }
+
+  function renderCenterStatus() {
+    centerList.replaceChildren();
+    currentCenters.forEach((center) => {
+      const row = document.createElement('article');
+      row.className = 'center-row';
       const nameGroup = document.createElement('div');
       nameGroup.className = 'center-name';
       const avatar = document.createElement('span');
       avatar.className = `center-avatar ${centerStyles[center.centerName] || 'avatar-blue'}`;
       avatar.textContent = center.centerName.slice(0, 1);
       const name = document.createElement('span');
-      const strong = document.createElement('strong');
-      strong.textContent = center.centerName;
+      const label = document.createElement('strong');
+      label.textContent = center.centerName;
       const detail = document.createElement('small');
-      detail.textContent = `${numberFormat.format(center.deliveredBoxes)} / ${numberFormat.format(center.orderBoxes)} BOX 출고`;
-      name.append(strong, detail);
+      const unit = centerUnit(center.centerName);
+      detail.textContent = `${numberFormat.format(center.deliveredBoxes)} / ${numberFormat.format(center.orderBoxes)} ${unit} 출고`;
+      name.append(label, detail);
       nameGroup.append(avatar, name);
 
       const metrics = document.createElement('div');
@@ -120,22 +214,46 @@
       const foot = document.createElement('small');
       const rateLabel = document.createElement('b');
       rateLabel.textContent = `${percentFormat.format(rate)}%`;
-      const boxes = document.createElement('i');
-      boxes.className = `center-issue-count ${center.unshippedBoxes > 0 ? 'issue-count-red' : 'issue-count-green'}`;
-      boxes.textContent = `미배송 ${numberFormat.format(center.unshippedBoxes)} BOX`;
-      foot.append(rateLabel, boxes);
+      const unshipped = document.createElement('i');
+      unshipped.className = `center-issue-count ${center.unshippedBoxes > 0 ? 'issue-count-red' : 'issue-count-green'}`;
+      unshipped.textContent = `미배송 ${numberFormat.format(center.unshippedBoxes)} ${unit}`;
+      foot.append(rateLabel, unshipped);
       metrics.append(track, foot);
       row.append(nameGroup, metrics);
       centerList.append(row);
     });
-    document.getElementById('connected-center-count').textContent = `${centers.length}개 센터`;
+    if (!currentCenters.length) {
+      const emptyState = document.createElement('p');
+      emptyState.className = 'center-empty-state';
+      emptyState.textContent = '선택한 보고일의 센터 데이터가 없습니다.';
+      centerList.append(emptyState);
+    }
+  }
+
+  function renderCenters(centers) {
+    currentCenters = [...centers].sort((left, right) => {
+      const leftIndex = centerOrder.indexOf(left.centerName);
+      const rightIndex = centerOrder.indexOf(right.centerName);
+      return (leftIndex < 0 ? centerOrder.length : leftIndex)
+        - (rightIndex < 0 ? centerOrder.length : rightIndex);
+    });
+    renderCenterStatus();
+    if (currentCenters.length && !currentCenters.some((center) => center.centerName === activeCenterName)) {
+      activeCenterName = centerOrder.find((name) => currentCenters.some((center) => center.centerName === name))
+        || currentCenters[0].centerName;
+    }
+    selectCenter(activeCenterName);
+    document.getElementById('connected-center-count').textContent = currentCenters.length
+      ? `${currentCenters.length}개 센터`
+      : '보고 없음';
   }
 
   function renderIssues(issues) {
     const term = searchInput.value.trim().toLocaleLowerCase('ko-KR');
     const matching = issues.filter((issue) => {
       const typeMatches = activeFilter === 'all' || issue.issueType === activeFilter;
-      const searchMatches = !term || `${issue.centerName} ${issue.causeCode} ${issue.issueType}`
+      const causeName = formatCauseName(issue.causeCode);
+      const searchMatches = !term || `${issue.centerName} ${causeName} ${issue.issueType}`
         .toLocaleLowerCase('ko-KR').includes(term);
       return typeMatches && searchMatches;
     });
@@ -157,12 +275,21 @@
       const countCell = document.createElement('td');
       countCell.textContent = `${numberFormat.format(issue.issueCount)}건`;
       const causeCell = document.createElement('td');
-      const cause = document.createElement('span');
-      cause.className = 'reason-code';
-      cause.textContent = issue.causeCode;
-      causeCell.append(cause);
+      const causeDisplay = document.createElement('div');
+      causeDisplay.className = 'cause-display';
+      const causeName = document.createElement('span');
+      causeName.className = 'cause-name';
+      causeName.textContent = formatCauseName(issue.causeCode);
+      const causeButton = document.createElement('button');
+      causeButton.className = 'cause-detail-button';
+      causeButton.type = 'button';
+      causeButton.textContent = '상세';
+      causeButton.setAttribute('aria-label', `${causeName.textContent} 상세 보기`);
+      causeButton.addEventListener('click', () => showCauseDetails(issue, causeButton));
+      causeDisplay.append(causeName, causeButton);
+      causeCell.append(causeDisplay);
       const boxesCell = document.createElement('td');
-      boxesCell.textContent = `${numberFormat.format(issue.boxCount)} BOX`;
+      boxesCell.textContent = `${numberFormat.format(issue.boxCount)} ${centerUnit(issue.centerName)}`;
       row.append(centerCell, typeCell, countCell, causeCell, boxesCell);
       issueRows.append(row);
     });
@@ -182,19 +309,20 @@
     document.querySelector('[data-filter="기타"] span').textContent = numberFormat.format(otherCount);
     document.getElementById('visible-count').textContent = `${matching.length}개 집계 항목 표시 · 거래처·담당자 정보 제외`;
 
-    const detailedUnshippedBoxes = issues.filter((issue) => issue.issueType === '미배송')
+    const detailedUnshippedBoxes = issues.filter((issue) => issue.issueType === '미배송' && centerUnit(issue.centerName) === 'BOX')
       .reduce((total, issue) => total + issue.boxCount, 0);
     const reportedUnshippedBoxes = Number(currentReport?.summary?.unshippedBoxes || 0);
     const dataWarning = document.getElementById('data-warning');
     dataWarning.hidden = detailedUnshippedBoxes === reportedUnshippedBoxes;
     dataWarning.textContent = dataWarning.hidden ? ''
-      : `원본 요약 미배송량(${numberFormat.format(reportedUnshippedBoxes)} BOX)과 날짜별 상세 이슈 합계(${numberFormat.format(detailedUnshippedBoxes)} BOX)가 다릅니다. 상세 기록 누락 또는 집계 기준 차이를 확인해 주세요.`;
+      : `원본 요약 미배송량(${numberFormat.format(reportedUnshippedBoxes)} BOX)과 BOX 단위 상세 이슈 합계(${numberFormat.format(detailedUnshippedBoxes)} BOX)가 다릅니다. 상세 기록 누락 또는 집계 기준 차이를 확인해 주세요.`;
   }
 
   async function loadReport(dateValue) {
     reportDateInput.value = dateValue;
     reportDateLabel.textContent = formatDate(dateValue);
     centerReportDate.textContent = formatDate(dateValue);
+    resourceReportDate.textContent = formatDate(dateValue);
     try {
       window.localStorage.setItem('3pl-report-date', dateValue);
     } catch (_) {
@@ -233,14 +361,17 @@
       ['납품율(%)', percentFormat.format(Number(summary.deliveryRate) * 100)],
       ['미배송량(BOX)', summary.unshippedBoxes],
       [],
-      ['센터', '주문량(BOX)', '납품량(BOX)', '결품량(BOX)', '납품율(%)', '미배송량(BOX)'],
+      ['센터', '단위', '주문량', '납품량', '결품량', '납품율(%)', '미배송량'],
       ...centers.map((center) => [
-        center.centerName, center.orderBoxes, center.deliveredBoxes, center.shortageBoxes,
+        center.centerName, centerUnit(center.centerName), center.orderBoxes, center.deliveredBoxes, center.shortageBoxes,
         percentFormat.format(Number(center.deliveryRate) * 100), center.unshippedBoxes
       ]),
       [],
-      ['센터', '유형', '원인', '건수', '수량(BOX)'],
-      ...issues.map((issue) => [issue.centerName, issue.issueType, issue.causeCode, issue.issueCount, issue.boxCount])
+      ['센터', '유형', '원인', '건수', '수량', '단위'],
+      ...issues.map((issue) => [
+        issue.centerName, issue.issueType, formatCauseName(issue.causeCode), issue.issueCount,
+        issue.boxCount, centerUnit(issue.centerName)
+      ])
     ];
     const csv = `\uFEFF${rows.map((row) => row.map((cell) => `"${String(cell ?? '').replaceAll('"', '""')}"`).join(',')).join('\r\n')}`;
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -250,6 +381,54 @@
     link.click();
     URL.revokeObjectURL(url);
   }
+
+  function activateDashboardTab(tab) {
+    const activePanelId = tab.getAttribute('aria-controls');
+    dashboardTabs.forEach((tabButton) => {
+      const isActive = tabButton === tab;
+      tabButton.setAttribute('aria-selected', String(isActive));
+      tabButton.tabIndex = isActive ? 0 : -1;
+    });
+    document.querySelectorAll('.content-grid > [role="tabpanel"]').forEach((panel) => {
+      panel.hidden = panel.id !== activePanelId;
+    });
+  }
+
+  dashboardTabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => activateDashboardTab(tab));
+    tab.addEventListener('keydown', (event) => {
+      let nextIndex = index;
+      if (event.key === 'ArrowRight') nextIndex = (index + 1) % dashboardTabs.length;
+      else if (event.key === 'ArrowLeft') nextIndex = (index - 1 + dashboardTabs.length) % dashboardTabs.length;
+      else if (event.key === 'Home') nextIndex = 0;
+      else if (event.key === 'End') nextIndex = dashboardTabs.length - 1;
+      else return;
+      event.preventDefault();
+      dashboardTabs[nextIndex].focus();
+      activateDashboardTab(dashboardTabs[nextIndex]);
+    });
+  });
+  activateDashboardTab(dashboardTabs[0]);
+  document.getElementById('center-status-link').addEventListener('click', (event) => {
+    event.preventDefault();
+    activateDashboardTab(document.getElementById('tab-centers'));
+    document.getElementById('center-status-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  centerTabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => selectCenter(tab.dataset.centerName));
+    tab.addEventListener('keydown', (event) => {
+      let nextIndex = index;
+      if (event.key === 'ArrowRight') nextIndex = (index + 1) % centerTabs.length;
+      else if (event.key === 'ArrowLeft') nextIndex = (index - 1 + centerTabs.length) % centerTabs.length;
+      else if (event.key === 'Home') nextIndex = 0;
+      else if (event.key === 'End') nextIndex = centerTabs.length - 1;
+      else return;
+      event.preventDefault();
+      centerTabs[nextIndex].focus();
+      selectCenter(centerTabs[nextIndex].dataset.centerName);
+    });
+  });
 
   filterButtons.forEach((button) => {
     button.addEventListener('click', () => {
@@ -297,6 +476,14 @@
   }
 
   document.getElementById('open-report-upload').addEventListener('click', openUploadDialog);
+  document.getElementById('close-cause-detail').addEventListener('click', closeCauseDetails);
+  document.getElementById('done-cause-detail').addEventListener('click', closeCauseDetails);
+  causeDetailOverlay.addEventListener('click', (event) => {
+    if (event.target === causeDetailOverlay) closeCauseDetails();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !causeDetailOverlay.hidden) closeCauseDetails();
+  });
   document.getElementById('close-report-upload').addEventListener('click', closeUploadDialog);
   document.getElementById('cancel-report-upload').addEventListener('click', closeUploadDialog);
   uploadOverlay.addEventListener('click', (event) => {
@@ -361,7 +548,6 @@
   });
 
   document.getElementById('download-report').addEventListener('click', exportReport);
-  document.getElementById('center-detail').addEventListener('click', () => showToast('센터 현황은 선택한 보고일의 요약 수치입니다.'));
   document.getElementById('guide-action').addEventListener('click', () => showToast('거래처·담당자·자유 메모는 대시보드에 저장하지 않습니다.'));
 
   async function initialize() {

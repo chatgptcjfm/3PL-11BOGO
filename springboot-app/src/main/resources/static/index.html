@@ -7,7 +7,7 @@
   <meta name="description" content="3PL 센터의 결품·미배송 이슈와 종결 상태를 한 화면에서 확인하는 일일보고 대시보드">
   <title>3PL 일일보고 | Control Tower</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="stylesheet" href="/css/app.css?v=20261022-report-date-select-fix2">
+  <link rel="stylesheet" href="/css/app.css?v=20261022-center-resource-units-fix3">
 </head>
 <body>
   <div class="app-shell">
@@ -20,7 +20,7 @@
       <nav class="side-nav">
         <a class="side-link is-active" href="#overview"><span class="nav-icon">◫</span><span>통합 현황</span><span class="nav-current"></span></a>
         <a class="side-link" href="#issues"><span class="nav-icon">⌁</span><span>결품 · 미배송</span><span class="side-count" id="nav-issue-count">37</span></a>
-        <a class="side-link" href="#centers"><span class="nav-icon">◎</span><span>센터 현황</span></a>
+        <a class="side-link" id="center-status-link" href="#center-status-panel"><span class="nav-icon">◎</span><span>센터 현황</span></a>
       </nav>
       <div class="sidebar-foot">
         <div class="help-card">
@@ -93,10 +93,22 @@
           </article>
         </section>
 
+        <nav class="dashboard-tabs" role="tablist" aria-label="대시보드 현황 선택">
+          <button class="dashboard-tab" id="tab-centers" type="button" role="tab" aria-selected="true" aria-controls="center-status-panel" tabindex="0">센터현황</button>
+          <button class="dashboard-tab" id="tab-issues" type="button" role="tab" aria-selected="false" aria-controls="issues" tabindex="-1">결품·미배송 현황</button>
+          <button class="dashboard-tab" id="tab-resources" type="button" role="tab" aria-selected="false" aria-controls="resource-panel" tabindex="-1">자원현황</button>
+        </nav>
         <div class="content-grid">
-          <section class="panel issue-panel" id="issues">
+          <section class="panel center-status-panel" id="center-status-panel" role="tabpanel" aria-labelledby="tab-centers">
+            <div class="compact-panel-head"><div><div class="section-eyebrow">CENTER STATUS</div><h2>센터별 현황</h2></div></div>
+            <div class="center-summary"><span class="center-online"><i></i> 날짜별 출고 집계</span><span class="small-muted">선택일 <b id="center-report-date">—</b></span></div>
+            <div class="center-list" id="center-list" aria-live="polite"></div>
+            <div class="center-legend"><span><i class="legend-dot legend-green"></i> 99.5% 이상</span><span><i class="legend-dot legend-amber"></i> 98.0–99.4%</span><span><i class="legend-dot legend-red"></i> 98.0% 미만</span></div>
+          </section>
+
+          <section class="panel issue-panel" id="issues" role="tabpanel" aria-labelledby="tab-issues" hidden>
             <div class="panel-header">
-              <div><div class="section-eyebrow">ISSUE SUMMARY <span class="live-mini"><i></i> DAILY</span></div><h2>결품 · 미배송 집계 <span class="panel-count" id="issue-total">0</span></h2><p class="panel-description">선택한 날짜의 센터별 보고서에 기록된 이슈 원인과 수량입니다.</p></div>
+              <div><div class="section-eyebrow">ISSUE SUMMARY <span class="live-mini"><i></i> DAILY</span></div><h2>결품 · 미배송 집계 <span class="panel-count" id="issue-total">0</span></h2><p class="panel-description">상세 버튼을 누르면 선택한 원인의 보고 정보를 확인할 수 있습니다.</p></div>
               <div class="panel-actions"><button class="button button-quiet" type="button" id="download-report"><span class="download-icon">↓</span> 보고서 내보내기</button><button class="more-button" type="button" aria-label="더 보기">···</button></div>
             </div>
             <div class="issue-toolbar">
@@ -118,11 +130,28 @@
             <div class="data-warning" id="data-warning" role="status" hidden></div>
           </section>
 
-          <aside class="side-panels">
+          <aside class="side-panels" id="resource-panel" role="tabpanel" aria-labelledby="tab-resources" hidden>
             <section class="panel center-panel" id="centers">
-              <div class="compact-panel-head"><div><div class="section-eyebrow">CENTER STATUS</div><h2>센터별 현황</h2></div><button class="text-link" type="button" id="center-detail">상세 <span>→</span></button></div>
-              <div class="center-summary"><span class="center-online"><i></i> 날짜별 출고 집계</span><span class="small-muted">선택일 <b id="center-report-date">—</b></span></div>
-              <div class="center-list" id="center-list"></div>
+              <div class="compact-panel-head"><div><div class="section-eyebrow">CENTER RESOURCE STATUS</div><h2>센터별 자원현황</h2></div></div>
+              <div class="center-summary"><span class="center-online"><i></i> 선택 센터 운영 집계</span><span class="small-muted">보고일 <b id="resource-report-date">—</b></span></div>
+              <nav class="center-tabs" id="center-tabs" role="tablist" aria-label="센터 선택">
+                <button class="center-tab" id="center-tab-capital" type="button" role="tab" aria-selected="true" aria-controls="active-center-panel" data-center-name="수도권센터">수도권</button>
+                <button class="center-tab" id="center-tab-gyeongnam-life" type="button" role="tab" aria-selected="false" aria-controls="active-center-panel" data-center-name="경남센터(생활)" tabindex="-1">경남 생활</button>
+                <button class="center-tab" id="center-tab-gyeongnam-paper" type="button" role="tab" aria-selected="false" aria-controls="active-center-panel" data-center-name="경남센터(제지)" tabindex="-1">경남 제지</button>
+                <button class="center-tab" id="center-tab-gyeongbuk" type="button" role="tab" aria-selected="false" aria-controls="active-center-panel" data-center-name="경북센터" tabindex="-1">경북</button>
+                <button class="center-tab" id="center-tab-jeolla" type="button" role="tab" aria-selected="false" aria-controls="active-center-panel" data-center-name="전라센터" tabindex="-1">전라</button>
+                <button class="center-tab" id="center-tab-jeju" type="button" role="tab" aria-selected="false" aria-controls="active-center-panel" data-center-name="제주센터" tabindex="-1">제주</button>
+              </nav>
+              <section class="active-center-panel" id="active-center-panel" role="tabpanel" aria-labelledby="center-tab-capital">
+                <div class="active-center-heading"><span class="center-avatar avatar-blue" id="active-center-avatar">수</span><div><strong id="active-center-name">수도권센터</strong><small id="center-status-line">선택한 보고일의 운영 현황</small></div></div>
+                <div class="center-resource-grid">
+                  <article class="center-resource-card"><span>주문량</span><strong><span id="center-order-boxes">—</span><small id="center-order-unit">BOX</small></strong></article>
+                  <article class="center-resource-card"><span>출고 완료</span><strong><span id="center-delivered-boxes">—</span><small id="center-delivered-unit">BOX</small></strong></article>
+                  <article class="center-resource-card"><span>결품량</span><strong><span id="center-shortage-boxes">—</span><small id="center-shortage-unit">BOX</small></strong></article>
+                  <article class="center-resource-card"><span>미배송량</span><strong><span id="center-unshipped-boxes">—</span><small id="center-unshipped-unit">BOX</small></strong></article>
+                </div>
+                <div class="center-delivery-summary"><div class="center-delivery-heading"><span>납품률</span><strong id="center-delivery-rate">—</strong></div><div class="center-bar"><span id="center-delivery-progress"></span></div></div>
+              </section>
               <div class="center-legend"><span><i class="legend-dot legend-green"></i> 99.5% 이상</span><span><i class="legend-dot legend-amber"></i> 98.0–99.4%</span><span><i class="legend-dot legend-red"></i> 98.0% 미만</span></div>
             </section>
           </aside>
@@ -147,6 +176,25 @@
     </section>
   </div>
 
+  <div class="cause-detail-overlay" id="cause-detail-overlay" hidden>
+    <section class="cause-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="cause-detail-title">
+      <div class="dialog-head">
+        <div><div class="section-eyebrow">ISSUE DETAIL</div><h2 id="cause-detail-title">원인 상세</h2></div>
+        <button class="dialog-close" type="button" id="close-cause-detail" aria-label="닫기">×</button>
+      </div>
+      <p class="dialog-description">선택한 센터와 유형의 원인 및 일일 집계 정보입니다.</p>
+      <dl class="cause-detail-grid">
+        <div><dt>원인</dt><dd id="cause-detail-name">—</dd></div>
+        <div><dt>보고일</dt><dd id="cause-detail-date">—</dd></div>
+        <div><dt>센터</dt><dd id="cause-detail-center">—</dd></div>
+        <div><dt>유형</dt><dd id="cause-detail-type">—</dd></div>
+        <div><dt>집계 건수</dt><dd id="cause-detail-count">—</dd></div>
+        <div><dt>수량</dt><dd id="cause-detail-boxes">—</dd></div>
+      </dl>
+      <div class="dialog-actions"><button class="button button-primary" type="button" id="done-cause-detail">확인</button></div>
+    </section>
+  </div>
+
   <dialog class="issue-dialog" id="issue-dialog" aria-labelledby="dialog-title">
     <form id="issue-form" method="dialog">
       <div class="dialog-head"><div><div class="section-eyebrow">NEW OPERATIONAL ISSUE</div><h2 id="dialog-title">새 이슈 등록</h2></div><button class="dialog-close" type="button" id="close-issue-modal" aria-label="닫기">×</button></div>
@@ -164,6 +212,6 @@
     </form>
   </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="/js/app.js?v=20261022-report-date-select-fix2" defer></script>
+  <script src="/js/app.js?v=20261022-center-resource-units-fix3" defer></script>
 </body>
 </html>
