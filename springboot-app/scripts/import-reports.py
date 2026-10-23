@@ -172,10 +172,6 @@ def extract_report(
         shortage_details = []
         issue_groups: Counter[tuple[str, str, str]] = Counter()
         issue_boxes: Counter[tuple[str, str, str]] = Counter()
-        previous_day_unshipped_groups: Counter[tuple[str, str, str]] = Counter()
-        previous_day_unshipped_boxes: Counter[tuple[str, str, str]] = Counter()
-        current_day_unshipped_boxes: Counter[str] = Counter()
-        delivery_adjustment = 0
 
         for sheet_name in workbook.sheets:
             if sheet_name.startswith("요약"):
@@ -210,15 +206,10 @@ def extract_report(
                     if cause not in ALLOWED_CAUSES:
                         cause = "기타"
                     key = (center_name, issue_type[:40], cause[:80])
-                    if event_day == report_day - timedelta(days=1) and issue_type == "미배송":
-                        previous_day_unshipped_groups[key] += 1
-                        previous_day_unshipped_boxes[key] += as_int(cells.get(5))
                     if event_day not in {report_day, report_day + timedelta(days=1)}:
                         continue
                     issue_groups[key] += 1
                     issue_boxes[key] += as_int(cells.get(5))
-                    if event_day == report_day and issue_type == "미배송":
-                        current_day_unshipped_boxes[center_name] += as_int(cells.get(5))
                 continue
 
             prefix = sheet_name.split(".", 1)[0].split("-", 1)[0]
@@ -257,12 +248,7 @@ def extract_report(
             if daily.get(3) != "당일":
                 continue
             order_boxes = as_int(daily.get(6))
-            reported_delivered_boxes = as_int(daily.get(7))
-            unshipped_boxes = as_int(unshipped.get(10))
-            delivered_boxes = reported_delivered_boxes
-            if order_boxes > 0:
-                delivered_boxes = min(reported_delivered_boxes, max(0, order_boxes - unshipped_boxes))
-            delivery_adjustment += reported_delivered_boxes - delivered_boxes
+            delivered_boxes = as_int(daily.get(7))
             centers.append({
                 "center_name": center_name,
                 "order_boxes": order_boxes,
@@ -271,25 +257,36 @@ def extract_report(
                 "delivery_rate": (
                     delivered_boxes / order_boxes if order_boxes > 0 else float(daily.get(9) or 0)
                 ),
-                "unshipped_boxes": unshipped_boxes,
+                "unshipped_boxes": as_int(unshipped.get(10)),
             })
 
-    if delivery_adjustment:
-        summary["delivered_boxes"] = max(0, summary["delivered_boxes"] - delivery_adjustment)
-        if summary["order_boxes"] > 0:
-            summary["delivery_rate"] = summary["delivered_boxes"] / summary["order_boxes"]
-
+    excluded_previous_day_shortages = 0
+    excluded_previous_day_unshipped = 0
+    previous_day = report_day - timedelta(days=1)
     for center in centers:
         center_name = center["center_name"]
-        carryover_keys = [
-            key for key in previous_day_unshipped_groups if key[0] == center_name
-        ]
-        carryover_boxes = sum(previous_day_unshipped_boxes[key] for key in carryover_keys)
-        unaccounted_unshipped = center["unshipped_boxes"] - current_day_unshipped_boxes[center_name]
-        if carryover_boxes > 0 and carryover_boxes == unaccounted_unshipped:
-            for key in carryover_keys:
-                issue_groups[key] += previous_day_unshipped_groups[key]
-                issue_boxes[key] += previous_day_unshipped_boxes[key]
+        previous_day_boxes = sum(
+            as_int(detail["shortage_boxes"])
+            for detail in shortage_details
+            if detail["center_name"] == center_name
+            and detail["issue_type"] == "미배송"
+            and detail["event_date"] == previous_day
+        )
+        if previous_day_boxes <= 0:
+            continue
+        if center["unshipped_boxes"] == previous_day_boxes:
+            center["unshipped_boxes"] = 0
+            excluded_previous_day_unshipped += previous_day_boxes
+        if center["shortage_boxes"] == previous_day_boxes:
+            center["shortage_boxes"] = 0
+            excluded_previous_day_shortages += previous_day_boxes
+
+    summary["unshipped_boxes"] = max(
+        0, summary["unshipped_boxes"] - excluded_previous_day_unshipped
+    )
+    summary["shortage_boxes"] = max(
+        0, summary["shortage_boxes"] - excluded_previous_day_shortages
+    )
 
     issues = [
         {
