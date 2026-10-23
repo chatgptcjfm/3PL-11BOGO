@@ -1,6 +1,15 @@
 (() => {
   const reportDateInput = document.getElementById('report-date');
-  const reportDateLabel = document.getElementById('today-label');
+  const datePickerControl = document.getElementById('date-picker-control');
+  const datePickerWrap = document.getElementById('date-picker-wrap');
+  const reportDateLabel = document.getElementById('report-date-label');
+  const reportCalendar = document.getElementById('report-calendar');
+  const calendarMonthLabel = document.getElementById('calendar-month-label');
+  const calendarDays = document.getElementById('calendar-days');
+  const previousMonthButton = document.getElementById('calendar-previous-month');
+  const nextMonthButton = document.getElementById('calendar-next-month');
+  const latestReportDateButton = document.getElementById('latest-report-date');
+  const latestDateLabel = document.getElementById('latest-date-label');
   const centerReportDate = document.getElementById('center-report-date');
   const resourceReportDate = document.getElementById('resource-report-date');
   const centerList = document.getElementById('center-list');
@@ -17,13 +26,32 @@
   const uploadPasswordInput = document.getElementById('report-upload-password');
   const uploadStatus = document.getElementById('report-upload-status');
   const uploadSubmitButton = document.getElementById('submit-report-upload');
+  const resourceContextMenu = document.getElementById('resource-context-menu');
+  const openResourceEditButton = document.getElementById('open-resource-edit');
+  const resourceEditDialog = document.getElementById('resource-edit-dialog');
+  const resourceEditForm = document.getElementById('resource-edit-form');
+  const resourceEditPassword = document.getElementById('resource-edit-password');
+  const resourceEditStatus = document.getElementById('resource-edit-status');
+  const resourceEditSubmitButton = document.getElementById('save-resource-edit');
+  const resourceEditTrigger = document.getElementById('resource-edit-trigger');
+  const resourcePanel = document.getElementById('resource-panel');
   const causeDetailOverlay = document.getElementById('cause-detail-overlay');
+  const causeDetailReasonInput = document.getElementById('cause-detail-reason');
+  const causeDetailPasswordInput = document.getElementById('cause-detail-password');
+  const causeDetailSaveStatus = document.getElementById('cause-detail-save-status');
+  const saveCauseDetailButton = document.getElementById('save-cause-detail');
+  let activeCauseIssue = null;
   let activeFilter = 'all';
   let currentReport = null;
+  let availableReportDates = new Set();
+  let latestReportDate = '';
+  let calendarMonth = new Date();
   let currentCenters = [];
+  let currentResources = [];
   let activeCenterName = '수도권센터';
   let toastTimer;
   let causeDialogTrigger = null;
+  let resourceContextTarget = null;
 
   const numberFormat = new Intl.NumberFormat('ko-KR');
   const percentFormat = new Intl.NumberFormat('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -54,23 +82,101 @@
     }).format(new Date(year, month - 1, day));
   }
 
-  function populateReportDates(dates) {
-    const options = dates.map((date) => {
-      const option = document.createElement('option');
-      option.value = date;
-      option.textContent = formatDate(date);
-      return option;
+  function isoDate(year, monthIndex, day) {
+    return `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+
+  function closeReportCalendar(restoreFocus = false) {
+    reportCalendar.hidden = true;
+    datePickerControl.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) datePickerControl.focus();
+  }
+
+  function renderReportCalendar() {
+    const year = calendarMonth.getFullYear();
+    const monthIndex = calendarMonth.getMonth();
+    const monthNumber = year * 12 + monthIndex;
+    const orderedDates = [...availableReportDates].sort();
+    const firstDate = orderedDates[0];
+    const lastDate = orderedDates.at(-1);
+    const firstMonth = firstDate ? Number(firstDate.slice(0, 4)) * 12 + Number(firstDate.slice(5, 7)) - 1 : monthNumber;
+    const lastMonth = lastDate ? Number(lastDate.slice(0, 4)) * 12 + Number(lastDate.slice(5, 7)) - 1 : monthNumber;
+    calendarMonthLabel.textContent = `${year}년 ${monthIndex + 1}월`;
+    previousMonthButton.disabled = !orderedDates.length || monthNumber <= firstMonth;
+    nextMonthButton.disabled = !orderedDates.length || monthNumber >= lastMonth;
+
+    const leadingEmptyDays = new Date(year, monthIndex, 1).getDay();
+    const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+    const cells = [...Array(leadingEmptyDays).fill(null), ...Array.from({ length: daysInMonth }, (_, index) => index + 1)];
+    while (cells.length % 7 !== 0) cells.push(null);
+
+    const today = new Date();
+    const todayValue = isoDate(today.getFullYear(), today.getMonth(), today.getDate());
+    const selectedDate = reportDateInput.value;
+    const dayButtons = cells.map((day) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'calendar-day';
+      if (day === null) {
+        button.classList.add('is-empty');
+        button.disabled = true;
+        button.tabIndex = -1;
+        button.setAttribute('aria-hidden', 'true');
+        return button;
+      }
+
+      const value = isoDate(year, monthIndex, day);
+      const isUploaded = availableReportDates.has(value);
+      button.textContent = String(day);
+      button.disabled = !isUploaded;
+      button.classList.toggle('is-selected', value === selectedDate);
+      button.classList.toggle('is-today', value === todayValue);
+      button.setAttribute('aria-pressed', String(value === selectedDate));
+      button.setAttribute('aria-label', `${year}년 ${monthIndex + 1}월 ${day}일${isUploaded ? ' 보고서 등록됨' : ' 보고서 미등록'}`);
+      if (!isUploaded) button.title = '보고서 미등록';
+      if (isUploaded) button.addEventListener('click', () => {
+        closeReportCalendar(true);
+        loadReport(value);
+      });
+      return button;
     });
-    reportDateInput.replaceChildren(...options);
+    calendarDays.replaceChildren(...dayButtons);
+  }
+
+  function populateReportDates(dates) {
+    const orderedDates = [...new Set(dates)].sort();
+    availableReportDates = new Set(orderedDates);
+    latestReportDate = orderedDates.at(-1) || '';
+    latestReportDateButton.disabled = !latestReportDate;
+    latestDateLabel.textContent = latestReportDate
+      ? latestReportDate.slice(5).replace('-', '.')
+      : '—';
+    const referenceDate = reportDateInput.value || latestReportDate;
+    if (referenceDate) {
+      const [year, month] = referenceDate.split('-').map(Number);
+      calendarMonth = new Date(year, month - 1, 1);
+    }
+    renderReportCalendar();
   }
 
   function formatCauseName(causeName) {
     return causeName || '미분류';
   }
 
+  function setCauseDetailSaveStatus(message, state = '') {
+    const status = document.getElementById('cause-detail-save-status');
+    status.textContent = message;
+    status.classList.toggle('is-error', state === 'error');
+    status.classList.toggle('is-success', state === 'success');
+  }
+
   function showCauseDetails(issue, trigger) {
+    activeCauseIssue = issue;
     document.getElementById('cause-detail-title').textContent = formatCauseName(issue.causeCode);
     document.getElementById('cause-detail-name').textContent = formatCauseName(issue.causeCode);
+    causeDetailReasonInput.value = issue.detailReason || '';
+    causeDetailPasswordInput.value = '';
+    setCauseDetailSaveStatus('상세사유를 입력하고 저장할 수 있습니다.');
     document.getElementById('cause-detail-date').textContent = currentReport?.reportDate || '—';
     document.getElementById('cause-detail-center').textContent = issue.centerName;
     document.getElementById('cause-detail-type').textContent = issue.issueType;
@@ -136,41 +242,67 @@
   }
 
   function renderActiveCenter() {
-    const center = currentCenters.find((item) => item.centerName === activeCenterName);
+    const resource = currentResources.find((item) => item.centerName === activeCenterName);
     const activeTab = centerTabs.find((tab) => tab.dataset.centerName === activeCenterName);
     const panel = document.getElementById('active-center-panel');
     const avatar = document.getElementById('active-center-avatar');
     const centerName = document.getElementById('active-center-name');
     const statusLine = document.getElementById('center-status-line');
+    const categoryGrid = document.getElementById('resource-category-grid');
+    const emptyState = document.getElementById('resource-empty-state');
     panel.setAttribute('aria-labelledby', activeTab?.id || centerTabs[0].id);
     centerName.textContent = activeCenterName;
     avatar.className = `center-avatar ${centerStyles[activeCenterName] || 'avatar-blue'}`;
     avatar.textContent = activeCenterName.slice(0, 1);
-    const unit = centerUnit(activeCenterName);
-    ['center-order-unit', 'center-delivered-unit', 'center-shortage-unit', 'center-unshipped-unit']
-      .forEach((id) => setMetric(id, unit));
 
-    if (!center) {
-      statusLine.textContent = '선택한 보고일의 센터 데이터가 없습니다.';
-      setMetric('center-order-boxes', '—');
-      setMetric('center-delivered-boxes', '—');
-      setMetric('center-shortage-boxes', '—');
-      setMetric('center-unshipped-boxes', '—');
-      setMetric('center-delivery-rate', '—');
-      document.getElementById('center-delivery-progress').style.width = '0%';
+    categoryGrid.hidden = false;
+    if (!resource) {
+      statusLine.textContent = '선택한 보고일의 자원 정보';
+      emptyState.hidden = false;
+      ['resource-base-count', 'resource-area-pyeong', 'resource-total-staff', 'resource-office-staff',
+        'resource-field-staff', 'resource-forklift-count', 'resource-hpt-count']
+        .forEach((id) => setMetric(id, '—'));
       return;
     }
 
-    const deliveryRate = Math.min(100, Math.max(0, Number(center.deliveryRate || 0) * 100));
-    statusLine.textContent = `${numberFormat.format(center.deliveredBoxes)} / ${numberFormat.format(center.orderBoxes)} ${unit} 출고 완료`;
-    setMetric('center-order-boxes', numberFormat.format(center.orderBoxes));
-    setMetric('center-delivered-boxes', numberFormat.format(center.deliveredBoxes));
-    setMetric('center-shortage-boxes', numberFormat.format(center.shortageBoxes));
-    setMetric('center-unshipped-boxes', numberFormat.format(center.unshippedBoxes));
-    setMetric('center-delivery-rate', `${percentFormat.format(deliveryRate)}%`);
-    const progress = document.getElementById('center-delivery-progress');
-    progress.style.width = `${deliveryRate}%`;
-    progress.style.background = deliveryRate < 98 ? '#e67570' : deliveryRate < 99.5 ? '#dbad5b' : '#5e9c7c';
+    emptyState.hidden = true;
+    statusLine.textContent = '센터거점 · 인원 · 장비';
+    const areaFormat = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 2 });
+    const officeStaff = Number(resource.officeStaff || 0);
+    const fieldStaff = Number(resource.fieldStaff || 0);
+    setMetric('resource-base-count', numberFormat.format(Number(resource.baseCount || 0)));
+    setMetric('resource-area-pyeong', areaFormat.format(Number(resource.areaPyeong || 0)));
+    setMetric('resource-total-staff', numberFormat.format(officeStaff + fieldStaff));
+    setMetric('resource-office-staff', numberFormat.format(officeStaff));
+    setMetric('resource-field-staff', numberFormat.format(fieldStaff));
+    setMetric('resource-forklift-count', numberFormat.format(Number(resource.forkliftCount || 0)));
+    setMetric('resource-hpt-count', numberFormat.format(Number(resource.hptCount || 0)));
+  }
+
+  function setResourceEditStatus(message, state = '') {
+    resourceEditStatus.textContent = message;
+    resourceEditStatus.classList.toggle('is-error', state === 'error');
+    resourceEditStatus.classList.toggle('is-success', state === 'success');
+  }
+
+  function openResourceEditDialog() {
+    const reportDate = reportDateInput.value;
+    if (!reportDate || !resourceContextTarget) {
+      showToast('먼저 보고일과 센터를 선택해 주세요.');
+      return;
+    }
+    const resource = currentResources.find((item) => item.centerName === resourceContextTarget) || {};
+    document.getElementById('resource-edit-center').textContent = resourceContextTarget;
+    document.getElementById('resource-edit-date').textContent = formatDate(reportDate);
+    for (const field of ['baseCount', 'areaPyeong', 'officeStaff', 'fieldStaff', 'forkliftCount', 'hptCount']) {
+      resourceEditForm.elements.namedItem(field).value = String(resource[field] ?? 0);
+    }
+    resourceEditPassword.value = '';
+    resourceEditSubmitButton.disabled = false;
+    resourceEditSubmitButton.textContent = '저장';
+    setResourceEditStatus('저장하면 선택한 보고일의 해당 센터 자원현황에 반영됩니다.');
+    resourceEditDialog.showModal();
+    window.requestAnimationFrame(() => resourceEditForm.elements.namedItem('baseCount').focus());
   }
 
   function selectCenter(centerName) {
@@ -181,6 +313,25 @@
       tab.tabIndex = isActive ? 0 : -1;
     });
     renderActiveCenter();
+  }
+
+  function unshippedStatusLabel(center) {
+    const unit = centerUnit(center.centerName);
+    const defaultLabel = `미배송 ${numberFormat.format(center.unshippedBoxes)} ${unit}`;
+    if (unit !== 'BOX' || !currentReport?.reportDate || !center.unshippedBoxes) return defaultLabel;
+
+    const previousDayDate = new Date(`${currentReport.reportDate}T00:00:00Z`);
+    previousDayDate.setUTCDate(previousDayDate.getUTCDate() - 1);
+    const previousDay = previousDayDate.toISOString().slice(0, 10);
+    const previousDayUnshipped = (currentReport.shortageDetails || [])
+      .filter((detail) => detail.centerName === center.centerName
+        && detail.issueType === '미배송' && detail.eventDate === previousDay)
+      .reduce((total, detail) => total + Number(detail.shortageBoxes || 0), 0);
+
+    if (previousDayUnshipped > 0 && previousDayUnshipped === Number(center.unshippedBoxes)) {
+      return `${defaultLabel} · ${previousDay.slice(5).replace('-', '/')} 이월`;
+    }
+    return defaultLabel;
   }
 
   function renderCenterStatus() {
@@ -216,7 +367,7 @@
       rateLabel.textContent = `${percentFormat.format(rate)}%`;
       const unshipped = document.createElement('i');
       unshipped.className = `center-issue-count ${center.unshippedBoxes > 0 ? 'issue-count-red' : 'issue-count-green'}`;
-      unshipped.textContent = `미배송 ${numberFormat.format(center.unshippedBoxes)} ${unit}`;
+      unshipped.textContent = unshippedStatusLabel(center);
       foot.append(rateLabel, unshipped);
       metrics.append(track, foot);
       row.append(nameGroup, metrics);
@@ -230,13 +381,14 @@
     }
   }
 
-  function renderCenters(centers) {
+  function renderCenters(centers, resources = []) {
     currentCenters = [...centers].sort((left, right) => {
       const leftIndex = centerOrder.indexOf(left.centerName);
       const rightIndex = centerOrder.indexOf(right.centerName);
       return (leftIndex < 0 ? centerOrder.length : leftIndex)
         - (rightIndex < 0 ? centerOrder.length : rightIndex);
     });
+    currentResources = [...resources];
     renderCenterStatus();
     if (currentCenters.length && !currentCenters.some((center) => center.centerName === activeCenterName)) {
       activeCenterName = centerOrder.find((name) => currentCenters.some((center) => center.centerName === name))
@@ -339,7 +491,7 @@
       const report = await response.json();
       currentReport = report;
       updateKpis(report.summary);
-      renderCenters(report.centers || []);
+      renderCenters(report.centers || [], report.resources || []);
       renderIssues(report.issues || []);
     } catch (error) {
       setUnavailable('보고 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
@@ -430,6 +582,96 @@
     });
   });
 
+  const activeCenterPanel = document.getElementById('active-center-panel');
+  function showResourceContextMenu(event, centerName = activeCenterName) {
+    event.preventDefault();
+    resourceContextTarget = centerName;
+    const menuWidth = 210;
+    const menuHeight = 56;
+    resourceContextMenu.style.left = `${Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8))}px`;
+    resourceContextMenu.style.top = `${Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8))}px`;
+    resourceContextMenu.hidden = false;
+    openResourceEditButton.focus();
+  }
+
+  resourcePanel.addEventListener('contextmenu', (event) => {
+    const centerTab = event.target.closest('.center-tab');
+    if (centerTab?.dataset.centerName) selectCenter(centerTab.dataset.centerName);
+    showResourceContextMenu(event, centerTab?.dataset.centerName || activeCenterName);
+  });
+  const resourceDashboardTab = document.getElementById('tab-resources');
+  resourceDashboardTab.addEventListener('contextmenu', (event) => {
+    activateDashboardTab(resourceDashboardTab);
+    showResourceContextMenu(event, activeCenterName);
+  });
+  document.addEventListener('click', (event) => {
+    if (!resourceContextMenu.hidden && !resourceContextMenu.contains(event.target)) {
+      resourceContextMenu.hidden = true;
+    }
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !resourceContextMenu.hidden) {
+      resourceContextMenu.hidden = true;
+      activeCenterPanel.focus();
+    }
+  });
+  openResourceEditButton.addEventListener('click', () => {
+    resourceContextMenu.hidden = true;
+    openResourceEditDialog();
+  });
+  resourceEditTrigger.addEventListener('click', () => {
+    resourceContextTarget = activeCenterName;
+    resourceContextMenu.hidden = true;
+    openResourceEditDialog();
+  });
+  document.getElementById('close-resource-edit').addEventListener('click', () => resourceEditDialog.close());
+  document.getElementById('cancel-resource-edit').addEventListener('click', () => resourceEditDialog.close());
+  resourceEditDialog.addEventListener('close', () => {
+    resourceEditPassword.value = '';
+    resourceEditSubmitButton.disabled = false;
+    resourceEditSubmitButton.textContent = '저장';
+    resourceContextTarget = null;
+  });
+  resourceEditDialog.addEventListener('click', (event) => {
+    if (event.target === resourceEditDialog) resourceEditDialog.close();
+  });
+  resourceEditForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!currentReport || !resourceContextTarget || !resourceEditForm.reportValidity()) return;
+
+    const reportDate = reportDateInput.value;
+    const payload = Object.fromEntries(
+      ['baseCount', 'areaPyeong', 'officeStaff', 'fieldStaff', 'forkliftCount', 'hptCount']
+        .map((name) => [name, Number(resourceEditForm.elements.namedItem(name).value)])
+    );
+    resourceEditSubmitButton.disabled = true;
+    resourceEditSubmitButton.textContent = '저장 중…';
+    setResourceEditStatus('자원현황을 저장하고 있습니다.');
+    try {
+      const response = await fetch(
+        `/api/reports/${encodeURIComponent(reportDate)}/resources/${encodeURIComponent(resourceContextTarget)}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Report-Import-Password': resourceEditPassword.value
+          },
+          body: JSON.stringify(payload)
+        }
+      );
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || '자원현황을 저장하지 못했습니다.');
+      await loadReport(reportDate);
+      resourceEditDialog.close();
+      showToast(result.message || '자원현황을 저장했습니다.');
+    } catch (error) {
+      setResourceEditStatus(error.message || '저장 중 오류가 발생했습니다.', 'error');
+    } finally {
+      resourceEditSubmitButton.disabled = false;
+      resourceEditSubmitButton.textContent = '저장';
+    }
+  });
+
   filterButtons.forEach((button) => {
     button.addEventListener('click', () => {
       activeFilter = button.dataset.filter;
@@ -446,8 +688,43 @@
       searchInput.focus();
     }
   });
-  reportDateInput.addEventListener('change', () => {
-    if (reportDateInput.value) loadReport(reportDateInput.value);
+  datePickerControl.addEventListener('click', () => {
+    const referenceDate = reportDateInput.value || latestReportDate;
+    if (referenceDate) {
+      const [year, month] = referenceDate.split('-').map(Number);
+      calendarMonth = new Date(year, month - 1, 1);
+    }
+    renderReportCalendar();
+    reportCalendar.hidden = !reportCalendar.hidden;
+    const isOpen = !reportCalendar.hidden;
+    datePickerControl.setAttribute('aria-expanded', String(isOpen));
+    if (isOpen) {
+      const selectedDay = calendarDays.querySelector('.calendar-day.is-selected:not(:disabled)');
+      const firstAvailableDay = calendarDays.querySelector('.calendar-day:not(:disabled):not(.is-empty)');
+      (selectedDay || firstAvailableDay)?.focus();
+    }
+  });
+  previousMonthButton.addEventListener('click', () => {
+    calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
+    renderReportCalendar();
+  });
+  nextMonthButton.addEventListener('click', () => {
+    calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
+    renderReportCalendar();
+  });
+  datePickerWrap.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !reportCalendar.hidden) {
+      event.preventDefault();
+      closeReportCalendar(true);
+    }
+  });
+  document.addEventListener('click', (event) => {
+    if (!reportCalendar.hidden && !datePickerWrap.contains(event.target)) closeReportCalendar();
+  });
+  latestReportDateButton.addEventListener('click', () => {
+    if (!latestReportDate) return;
+    closeReportCalendar();
+    loadReport(latestReportDate);
   });
   function setUploadStatus(message, state = '') {
     uploadStatus.textContent = message;

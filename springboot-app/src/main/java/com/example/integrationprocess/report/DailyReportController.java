@@ -71,7 +71,7 @@ public class DailyReportController {
 
         List<Issue> issues = jdbcTemplate.query(
                 """
-                SELECT center_name, issue_type, cause_code, issue_count, box_count
+                SELECT center_name, issue_type, cause_code, issue_count, box_count, detail_reason
                 FROM daily_report_issue
                 WHERE report_date = ?
                 ORDER BY box_count DESC, center_name, cause_code
@@ -81,7 +81,8 @@ public class DailyReportController {
                         resultSet.getString("issue_type"),
                         resultSet.getString("cause_code"),
                         resultSet.getInt("issue_count"),
-                        resultSet.getInt("box_count")),
+                        resultSet.getInt("box_count"),
+                        resultSet.getString("detail_reason")),
                 date);
 
         List<Resource> resources = jdbcTemplate.query(
@@ -150,7 +151,7 @@ public class DailyReportController {
             BigDecimal deliveryRate,
             int unshippedBoxes) {}
 
-    public record Issue(String centerName, String issueType, String causeCode, int issueCount, int boxCount) {}
+    public record Issue(String centerName, String issueType, String causeCode, int issueCount, int boxCount, String detailReason) {}
 
     public record Resource(
             String centerName,

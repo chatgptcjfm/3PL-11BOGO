@@ -77,6 +77,26 @@ def to_date(value: object, default_year: int | None = None) -> date | None:
     return None
 
 
+def report_date_from_filename(filename: str) -> date | None:
+    basename = re.split(r"[\\/]", filename)[-1]
+    patterns = (
+        re.compile(r"(?<!\d)(?P<year>\d{2}|\d{4})[._/-](?P<month>\d{1,2})[._/-](?P<day>\d{1,2})(?!\d)"),
+        re.compile(r"(?<!\d)(?P<year>\d{2}|\d{4})년\s*(?P<month>\d{1,2})월\s*(?P<day>\d{1,2})일?(?!\d)"),
+    )
+    for pattern in patterns:
+        match = pattern.search(basename)
+        if not match:
+            continue
+        year = int(match.group("year"))
+        if year < 100:
+            year += 2000
+        try:
+            return date(year, int(match.group("month")), int(match.group("day")))
+        except ValueError as error:
+            raise ValueError(f"Invalid report date in filename: {basename}") from error
+    return None
+
+
 def as_int(value: object) -> int:
     if value in (None, ""):
         return 0
@@ -117,7 +137,13 @@ def sql_nullable_text(value: object) -> str:
     return sql_text(str(value))
 
 
-def extract_report(path: Path) -> tuple[date, dict, list[dict], list[dict], list[dict], list[dict]]:
+def extract_report(
+    path: Path, source_filename: str | None = None
+) -> tuple[date, dict, list[dict], list[dict], list[dict], list[dict]]:
+    report_day = report_date_from_filename(source_filename or path.name)
+    if not report_day:
+        raise ValueError("No report date in filename; expected a date such as 26.10.12")
+
     with open_workbook(str(path)) as workbook:
         if not workbook.sheets:
             raise ValueError(f"No sheets in {path.name}")
@@ -127,11 +153,11 @@ def extract_report(path: Path) -> tuple[date, dict, list[dict], list[dict], list
         if len(summary_rows) < 34:
             raise ValueError(f"Summary sheet is incomplete: {path.name}")
 
-        report_day = to_date(cell_map(summary_rows[4]).get(4))
+        workbook_report_day = to_date(cell_map(summary_rows[4]).get(4))
         daily_row = cell_map(summary_rows[14])
         unshipped_row = cell_map(summary_rows[33])
-        if not report_day or daily_row.get(3) != "당일":
-            raise ValueError(f"Could not identify daily report date/KPIs: {path.name}")
+        if not workbook_report_day or daily_row.get(3) != "당일":
+            raise ValueError(f"Could not identify workbook report date/KPIs: {path.name}")
 
         summary = {
             "order_boxes": as_int(daily_row.get(6)),
@@ -146,6 +172,9 @@ def extract_report(path: Path) -> tuple[date, dict, list[dict], list[dict], list
         shortage_details = []
         issue_groups: Counter[tuple[str, str, str]] = Counter()
         issue_boxes: Counter[tuple[str, str, str]] = Counter()
+        previous_day_unshipped_groups: Counter[tuple[str, str, str]] = Counter()
+        previous_day_unshipped_boxes: Counter[tuple[str, str, str]] = Counter()
+        current_day_unshipped_boxes: Counter[str] = Counter()
 
         for sheet_name in workbook.sheets:
             if sheet_name.startswith("요약"):
@@ -174,16 +203,21 @@ def extract_report(path: Path) -> tuple[date, dict, list[dict], list[dict], list
                         "source_sheet": sheet_name,
                         "source_row": source_row,
                     })
-                    if event_day not in {report_day, report_day + timedelta(days=1)}:
-                        continue
                     if issue_type not in {"결품", "미배송"}:
                         issue_type = "기타"
                     cause = str(cells.get(15) or cells.get(14) or cells.get(13) or "기타").strip()
                     if cause not in ALLOWED_CAUSES:
                         cause = "기타"
                     key = (center_name, issue_type[:40], cause[:80])
+                    if event_day == report_day - timedelta(days=1) and issue_type == "미배송":
+                        previous_day_unshipped_groups[key] += 1
+                        previous_day_unshipped_boxes[key] += as_int(cells.get(5))
+                    if event_day not in {report_day, report_day + timedelta(days=1)}:
+                        continue
                     issue_groups[key] += 1
                     issue_boxes[key] += as_int(cells.get(5))
+                    if event_day == report_day and issue_type == "미배송":
+                        current_day_unshipped_boxes[center_name] += as_int(cells.get(5))
                 continue
 
             prefix = sheet_name.split(".", 1)[0].split("-", 1)[0]
@@ -227,9 +261,21 @@ def extract_report(path: Path) -> tuple[date, dict, list[dict], list[dict], list
                 "order_boxes": order_boxes,
                 "delivered_boxes": as_int(daily.get(7)),
                 "shortage_boxes": as_int(daily.get(8)),
-                "delivery_rate": float(daily.get(9) or 0) if order_boxes else 0,
+                "delivery_rate": float(daily.get(9) or 0),
                 "unshipped_boxes": as_int(unshipped.get(10)),
             })
+
+    for center in centers:
+        center_name = center["center_name"]
+        carryover_keys = [
+            key for key in previous_day_unshipped_groups if key[0] == center_name
+        ]
+        carryover_boxes = sum(previous_day_unshipped_boxes[key] for key in carryover_keys)
+        unaccounted_unshipped = center["unshipped_boxes"] - current_day_unshipped_boxes[center_name]
+        if carryover_boxes > 0 and carryover_boxes == unaccounted_unshipped:
+            for key in carryover_keys:
+                issue_groups[key] += previous_day_unshipped_groups[key]
+                issue_boxes[key] += previous_day_unshipped_boxes[key]
 
     issues = [
         {
@@ -269,13 +315,25 @@ def build_sql(reports: list[tuple[date, dict, list[dict], list[dict], list[dict]
                 f"{sql_num(center['delivered_boxes'])}, {sql_num(center['shortage_boxes'])}, "
                 f"{sql_rate(center['delivery_rate'])}, {sql_num(center['unshipped_boxes'])});"
             )
-        statements.append(f"DELETE FROM daily_report_issue WHERE report_date={day};")
+        if issues:
+            issue_keys = " OR ".join(
+                "(center_name=" + sql_text(issue["center_name"])
+                + " AND issue_type=" + sql_text(issue["issue_type"])
+                + " AND cause_code=" + sql_text(issue["cause_code"]) + ")"
+                for issue in issues
+            )
+            statements.append(
+                f"DELETE FROM daily_report_issue WHERE report_date={day} AND NOT ({issue_keys});"
+            )
+        else:
+            statements.append(f"DELETE FROM daily_report_issue WHERE report_date={day};")
         for issue in issues:
             statements.append(
                 "INSERT INTO daily_report_issue "
                 "(report_date, center_name, issue_type, cause_code, issue_count, box_count) VALUES "
                 f"({day}, {sql_text(issue['center_name'])}, {sql_text(issue['issue_type'])}, "
-                f"{sql_text(issue['cause_code'])}, {sql_num(issue['issue_count'])}, {sql_num(issue['box_count'])});"
+                f"{sql_text(issue['cause_code'])}, {sql_num(issue['issue_count'])}, {sql_num(issue['box_count'])}) "
+                "ON DUPLICATE KEY UPDATE issue_count=VALUES(issue_count), box_count=VALUES(box_count);"
             )
 
         statements.append(f"DELETE FROM daily_report_resource WHERE report_date={day};")
@@ -308,13 +366,24 @@ def build_sql(reports: list[tuple[date, dict, list[dict], list[dict], list[dict]
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("files", nargs="+", type=Path, help="One or more 3PL daily-report .xlsb files")
+    parser.add_argument(
+        "--source-filename",
+        help="Original uploaded filename to use for the report date (single-file imports only)",
+    )
     args = parser.parse_args()
+    if args.source_filename and len(args.files) != 1:
+        raise SystemExit("--source-filename can only be used with one report file")
+    if args.source_filename and not report_date_from_filename(args.source_filename):
+        raise SystemExit("No report date in filename; expected a date such as 26.10.12")
     env = read_env()
     if not re.fullmatch(r"[A-Za-z0-9_]+", env.get("DB_NAME", "")):
         raise SystemExit("DB_NAME is missing or invalid in .env")
     if not re.fullmatch(r"[A-Za-z0-9_]+", env.get("DB_USERNAME", "")):
         raise SystemExit("DB_USERNAME is missing or invalid in .env")
-    reports = [extract_report(path) for path in args.files]
+    reports = [
+        extract_report(path, args.source_filename if len(args.files) == 1 else None)
+        for path in args.files
+    ]
     sql = build_sql(reports)
 
     defaults = "[client]\n"

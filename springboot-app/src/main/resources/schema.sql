@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS daily_report_issue (
   cause_code VARCHAR(80) NOT NULL,
   issue_count INT NOT NULL DEFAULT 0,
   box_count INT NOT NULL DEFAULT 0,
+  detail_reason TEXT,
   PRIMARY KEY (report_date, center_name, issue_type, cause_code),
   CONSTRAINT fk_daily_report_issue_summary
     FOREIGN KEY (report_date) REFERENCES daily_report_summary(report_date)
@@ -70,3 +71,6 @@ CREATE TABLE IF NOT EXISTS daily_report_shortage_detail (
     FOREIGN KEY (report_date) REFERENCES daily_report_summary(report_date)
     ON DELETE CASCADE
 );
+
+ALTER TABLE daily_report_issue
+  ADD COLUMN IF NOT EXISTS detail_reason TEXT;

@@ -7,7 +7,7 @@
   <meta name="description" content="3PL 센터의 결품·미배송 이슈와 종결 상태를 한 화면에서 확인하는 일일보고 대시보드">
   <title>3PL 일일보고 | Control Tower</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="stylesheet" href="/css/app.css?v=20261022-center-resource-units-fix3">
+  <link rel="stylesheet" href="/css/app.css?v=20261023-resource-edit-fix4">
 </head>
 <body>
   <div class="app-shell">
@@ -55,7 +55,26 @@
             <p class="page-subtitle">업로드된 일일보고에서 날짜별 출고 실적과 결품·미배송 집계를 확인합니다.</p>
           </div>
           <div class="heading-tools">
-            <label class="date-select"><span class="calendar-icon" aria-hidden="true">▦</span><span id="today-label">보고일 선택</span><span class="chevron" aria-hidden="true">⌄</span><select class="date-input" id="report-date" aria-label="보고 기준일 선택"><option value="">보고일 선택</option></select></label>
+            <div class="date-picker-wrap" id="date-picker-wrap">
+              <button class="date-picker-control" id="date-picker-control" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="report-calendar">
+                <span class="calendar-icon" aria-hidden="true">▦</span>
+                <span class="date-picker-label">보고일</span>
+                <span class="date-picker-value" id="report-date-label">보고일 선택</span>
+                <span class="date-picker-chevron" aria-hidden="true">⌄</span>
+              </button>
+              <input id="report-date" type="hidden" aria-label="보고 기준일">
+              <section class="report-calendar" id="report-calendar" role="dialog" aria-label="보고일 달력" hidden>
+                <header class="calendar-header">
+                  <button class="calendar-month-button" id="calendar-previous-month" type="button" aria-label="이전 달">‹</button>
+                  <h2 id="calendar-month-label">—</h2>
+                  <button class="calendar-month-button" id="calendar-next-month" type="button" aria-label="다음 달">›</button>
+                </header>
+                <div class="calendar-weekdays" aria-hidden="true"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+                <div class="calendar-days" id="calendar-days" role="group" aria-label="날짜 선택"></div>
+                <p class="calendar-legend"><span class="calendar-legend-dot"></span> 회색 날짜는 보고서 미등록</p>
+              </section>
+            </div>
+            <button class="button button-quiet recent-date-button" id="latest-report-date" type="button" disabled><span>최근 날짜</span><strong id="latest-date-label">—</strong></button>
             <button class="button button-primary upload-trigger" id="open-report-upload" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="report-upload-dialog" onclick="document.getElementById('report-upload-overlay').hidden = false; document.body.classList.add('upload-open'); document.getElementById('report-upload-file').focus();"><span aria-hidden="true">↑</span> 엑셀 보고서 등록</button>
           </div>
         </section>
@@ -131,9 +150,9 @@
           </section>
 
           <aside class="side-panels" id="resource-panel" role="tabpanel" aria-labelledby="tab-resources" hidden>
-            <section class="panel center-panel" id="centers">
-              <div class="compact-panel-head"><div><div class="section-eyebrow">CENTER RESOURCE STATUS</div><h2>센터별 자원현황</h2></div></div>
-              <div class="center-summary"><span class="center-online"><i></i> 선택 센터 운영 집계</span><span class="small-muted">보고일 <b id="resource-report-date">—</b></span></div>
+            <section class="panel center-panel resource-panel" id="centers">
+              <div class="compact-panel-head"><div><div class="section-eyebrow">CENTER RESOURCE STATUS</div><h2>센터별 자원현황</h2><p class="panel-description">선택한 센터의 거점·인원·장비 정보입니다. 화면을 우클릭하거나 변경 버튼을 누르세요.</p></div><button class="resource-edit-trigger" id="resource-edit-trigger" type="button" title="선택한 센터의 자원현황 변경">자원현황 변경</button></div>
+              <div class="center-summary"><span class="center-online"><i></i> 센터 자원 구성</span><span class="small-muted">보고일 <b id="resource-report-date">—</b></span></div>
               <nav class="center-tabs" id="center-tabs" role="tablist" aria-label="센터 선택">
                 <button class="center-tab" id="center-tab-capital" type="button" role="tab" aria-selected="true" aria-controls="active-center-panel" data-center-name="수도권센터">수도권</button>
                 <button class="center-tab" id="center-tab-gyeongnam-life" type="button" role="tab" aria-selected="false" aria-controls="active-center-panel" data-center-name="경남센터(생활)" tabindex="-1">경남 생활</button>
@@ -142,17 +161,34 @@
                 <button class="center-tab" id="center-tab-jeolla" type="button" role="tab" aria-selected="false" aria-controls="active-center-panel" data-center-name="전라센터" tabindex="-1">전라</button>
                 <button class="center-tab" id="center-tab-jeju" type="button" role="tab" aria-selected="false" aria-controls="active-center-panel" data-center-name="제주센터" tabindex="-1">제주</button>
               </nav>
-              <section class="active-center-panel" id="active-center-panel" role="tabpanel" aria-labelledby="center-tab-capital">
-                <div class="active-center-heading"><span class="center-avatar avatar-blue" id="active-center-avatar">수</span><div><strong id="active-center-name">수도권센터</strong><small id="center-status-line">선택한 보고일의 운영 현황</small></div></div>
-                <div class="center-resource-grid">
-                  <article class="center-resource-card"><span>주문량</span><strong><span id="center-order-boxes">—</span><small id="center-order-unit">BOX</small></strong></article>
-                  <article class="center-resource-card"><span>출고 완료</span><strong><span id="center-delivered-boxes">—</span><small id="center-delivered-unit">BOX</small></strong></article>
-                  <article class="center-resource-card"><span>결품량</span><strong><span id="center-shortage-boxes">—</span><small id="center-shortage-unit">BOX</small></strong></article>
-                  <article class="center-resource-card"><span>미배송량</span><strong><span id="center-unshipped-boxes">—</span><small id="center-unshipped-unit">BOX</small></strong></article>
+              <section class="active-center-panel" id="active-center-panel" role="tabpanel" aria-labelledby="center-tab-capital" tabindex="0">
+                <div class="active-center-heading"><span class="center-avatar avatar-blue" id="active-center-avatar">수</span><div><strong id="active-center-name">수도권센터</strong><small id="center-status-line">센터별 자원 정보</small></div></div>
+                <p class="resource-empty-state" id="resource-empty-state" role="status" hidden>해당 보고일의 자원현황 데이터가 없습니다.</p>
+                <div class="resource-category-grid" id="resource-category-grid">
+                  <section class="resource-category-card">
+                    <div class="resource-category-heading"><span class="resource-category-icon resource-icon-hub">⌖</span><div><small>LOCATION</small><h3>센터거점</h3></div></div>
+                    <dl class="resource-metric-list">
+                      <div><dt id="resource-base-label">거점 수</dt><dd><span id="resource-base-count">—</span><small>개</small></dd></div>
+                      <div><dt>센터 면적</dt><dd><span id="resource-area-pyeong">—</span><small>평</small></dd></div>
+                    </dl>
+                  </section>
+                  <section class="resource-category-card">
+                    <div class="resource-category-heading"><span class="resource-category-icon resource-icon-people">人</span><div><small>PERSONNEL</small><h3>인원</h3></div></div>
+                    <dl class="resource-metric-list">
+                      <div class="resource-total-row"><dt>총 인원</dt><dd><span id="resource-total-staff">—</span><small>명</small></dd></div>
+                      <div><dt>사무 인원</dt><dd><span id="resource-office-staff">—</span><small>명</small></dd></div>
+                      <div><dt>현장 인원</dt><dd><span id="resource-field-staff">—</span><small>명</small></dd></div>
+                    </dl>
+                  </section>
+                  <section class="resource-category-card">
+                    <div class="resource-category-heading"><span class="resource-category-icon resource-icon-equipment">▤</span><div><small>EQUIPMENT</small><h3>장비</h3></div></div>
+                    <dl class="resource-metric-list">
+                      <div><dt>지게차</dt><dd><span id="resource-forklift-count">—</span><small>대</small></dd></div>
+                      <div><dt>HPT</dt><dd><span id="resource-hpt-count">—</span><small>대</small></dd></div>
+                    </dl>
+                  </section>
                 </div>
-                <div class="center-delivery-summary"><div class="center-delivery-heading"><span>납품률</span><strong id="center-delivery-rate">—</strong></div><div class="center-bar"><span id="center-delivery-progress"></span></div></div>
               </section>
-              <div class="center-legend"><span><i class="legend-dot legend-green"></i> 99.5% 이상</span><span><i class="legend-dot legend-amber"></i> 98.0–99.4%</span><span><i class="legend-dot legend-red"></i> 98.0% 미만</span></div>
             </section>
           </aside>
         </div>
@@ -162,6 +198,28 @@
       </div>
     </main>
   </div>
+
+  <div class="resource-context-menu" id="resource-context-menu" role="menu" aria-label="자원현황 메뉴" hidden>
+    <button type="button" id="open-resource-edit" role="menuitem">자원현황 변경</button>
+  </div>
+
+  <dialog class="resource-edit-dialog" id="resource-edit-dialog" aria-labelledby="resource-edit-title">
+    <form id="resource-edit-form">
+      <div class="dialog-head"><div><div class="section-eyebrow">RESOURCE MANAGEMENT</div><h2 id="resource-edit-title">자원현황 변경</h2></div><button class="dialog-close" id="close-resource-edit" type="button" aria-label="닫기">×</button></div>
+      <p class="dialog-description"><strong id="resource-edit-center">센터</strong> · <span id="resource-edit-date">보고일</span>의 센터거점·인원·장비 수치를 수정합니다.</p>
+      <div class="resource-edit-grid">
+        <label>거점 수<input name="baseCount" type="number" min="0" max="1000000" step="1" required></label>
+        <label>센터 면적 (평)<input name="areaPyeong" type="number" min="0" max="10000000" step="0.01" required></label>
+        <label>사무 인원 (명)<input name="officeStaff" type="number" min="0" max="1000000" step="1" required></label>
+        <label>현장 인원 (명)<input name="fieldStaff" type="number" min="0" max="1000000" step="1" required></label>
+        <label>지게차 (대)<input name="forkliftCount" type="number" min="0" max="1000000" step="1" required></label>
+        <label>HPT (대)<input name="hptCount" type="number" min="0" max="1000000" step="1" required></label>
+      </div>
+      <label class="resource-edit-password" for="resource-edit-password">관리자 암호<input id="resource-edit-password" type="password" autocomplete="current-password" required></label>
+      <p class="resource-edit-status" id="resource-edit-status" role="status" aria-live="polite">저장하면 선택한 보고일의 해당 센터 자원현황에 반영됩니다.</p>
+      <div class="dialog-actions"><button class="button button-quiet" id="cancel-resource-edit" type="button">취소</button><button class="button button-primary" id="save-resource-edit" type="submit">저장</button></div>
+    </form>
+  </dialog>
 
   <div class="upload-overlay" id="report-upload-overlay" hidden>
     <section class="upload-dialog" id="report-upload-dialog" role="dialog" aria-modal="true" aria-labelledby="upload-dialog-title">
@@ -191,7 +249,10 @@
         <div><dt>집계 건수</dt><dd id="cause-detail-count">—</dd></div>
         <div><dt>수량</dt><dd id="cause-detail-boxes">—</dd></div>
       </dl>
-      <div class="dialog-actions"><button class="button button-primary" type="button" id="done-cause-detail">확인</button></div>
+      <label class="cause-detail-reason-field" for="cause-detail-reason">상세사유<textarea id="cause-detail-reason" maxlength="2000" rows="4" placeholder="상세사유를 입력하세요."></textarea></label>
+      <label class="cause-detail-password-field" for="cause-detail-password">관리자 암호<input id="cause-detail-password" type="password" autocomplete="current-password" required></label>
+      <p class="cause-detail-save-status" id="cause-detail-save-status" role="status" aria-live="polite">원인을 구체적으로 기록하면 이후에도 확인할 수 있습니다.</p>
+      <div class="dialog-actions"><button class="button button-quiet" type="button" id="save-cause-detail">상세사유 저장</button><button class="button button-primary" type="button" id="done-cause-detail">닫기</button></div>
     </section>
   </div>
 
@@ -212,6 +273,6 @@
     </form>
   </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="/js/app.js?v=20261022-center-resource-units-fix3" defer></script>
+  <script src="/js/app.js?v=20261023-resource-edit-fix4" defer></script>
 </body>
 </html>
