@@ -315,25 +315,6 @@
     renderActiveCenter();
   }
 
-  function unshippedStatusLabel(center) {
-    const unit = centerUnit(center.centerName);
-    const defaultLabel = `미배송 ${numberFormat.format(center.unshippedBoxes)} ${unit}`;
-    if (unit !== 'BOX' || !currentReport?.reportDate || !center.unshippedBoxes) return defaultLabel;
-
-    const previousDayDate = new Date(`${currentReport.reportDate}T00:00:00Z`);
-    previousDayDate.setUTCDate(previousDayDate.getUTCDate() - 1);
-    const previousDay = previousDayDate.toISOString().slice(0, 10);
-    const previousDayUnshipped = (currentReport.shortageDetails || [])
-      .filter((detail) => detail.centerName === center.centerName
-        && detail.issueType === '미배송' && detail.eventDate === previousDay)
-      .reduce((total, detail) => total + Number(detail.shortageBoxes || 0), 0);
-
-    if (previousDayUnshipped > 0 && previousDayUnshipped === Number(center.unshippedBoxes)) {
-      return `${defaultLabel} · ${previousDay.slice(5).replace('-', '/')} 이월`;
-    }
-    return defaultLabel;
-  }
-
   function renderCenterStatus() {
     centerList.replaceChildren();
     currentCenters.forEach((center) => {
@@ -367,7 +348,7 @@
       rateLabel.textContent = `${percentFormat.format(rate)}%`;
       const unshipped = document.createElement('i');
       unshipped.className = `center-issue-count ${center.unshippedBoxes > 0 ? 'issue-count-red' : 'issue-count-green'}`;
-      unshipped.textContent = unshippedStatusLabel(center);
+      unshipped.textContent = `미배송 ${numberFormat.format(center.unshippedBoxes)} ${unit}`;
       foot.append(rateLabel, unshipped);
       metrics.append(track, foot);
       row.append(nameGroup, metrics);

@@ -113,19 +113,19 @@
         </section>
 
         <nav class="dashboard-tabs" role="tablist" aria-label="대시보드 현황 선택">
-          <button class="dashboard-tab" id="tab-centers" type="button" role="tab" aria-selected="true" aria-controls="center-status-panel" tabindex="0">센터현황</button>
-          <button class="dashboard-tab" id="tab-issues" type="button" role="tab" aria-selected="false" aria-controls="issues" tabindex="-1">결품·미배송 현황</button>
+          <button class="dashboard-tab" id="tab-issues" type="button" role="tab" aria-selected="true" aria-controls="issues" tabindex="0">결품·미배송 현황</button>
+          <button class="dashboard-tab" id="tab-centers" type="button" role="tab" aria-selected="false" aria-controls="center-status-panel" tabindex="-1">센터현황</button>
           <button class="dashboard-tab" id="tab-resources" type="button" role="tab" aria-selected="false" aria-controls="resource-panel" tabindex="-1">자원현황</button>
         </nav>
         <div class="content-grid">
-          <section class="panel center-status-panel" id="center-status-panel" role="tabpanel" aria-labelledby="tab-centers">
+          <section class="panel center-status-panel" id="center-status-panel" role="tabpanel" aria-labelledby="tab-centers" hidden>
             <div class="compact-panel-head"><div><div class="section-eyebrow">CENTER STATUS</div><h2>센터별 현황</h2></div></div>
             <div class="center-summary"><span class="center-online"><i></i> 날짜별 출고 집계</span><span class="small-muted">선택일 <b id="center-report-date">—</b></span></div>
             <div class="center-list" id="center-list" aria-live="polite"></div>
             <div class="center-legend"><span><i class="legend-dot legend-green"></i> 99.5% 이상</span><span><i class="legend-dot legend-amber"></i> 98.0–99.4%</span><span><i class="legend-dot legend-red"></i> 98.0% 미만</span></div>
           </section>
 
-          <section class="panel issue-panel" id="issues" role="tabpanel" aria-labelledby="tab-issues" hidden>
+          <section class="panel issue-panel" id="issues" role="tabpanel" aria-labelledby="tab-issues">
             <div class="panel-header">
               <div><div class="section-eyebrow">ISSUE SUMMARY <span class="live-mini"><i></i> DAILY</span></div><h2>결품 · 미배송 집계 <span class="panel-count" id="issue-total">0</span></h2><p class="panel-description">상세 버튼을 누르면 선택한 원인의 보고 정보를 확인할 수 있습니다.</p></div>
               <div class="panel-actions"><button class="button button-quiet" type="button" id="download-report"><span class="download-icon">↓</span> 보고서 내보내기</button><button class="more-button" type="button" aria-label="더 보기">···</button></div>
@@ -273,6 +273,6 @@
     </form>
   </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="/js/app.js?v=20261023-resource-edit-fix4" defer></script>
+  <script src="/js/app.js?v=20261023-issues-first-rate-fix5" defer></script>
 </body>
 </html>

@@ -175,6 +175,7 @@ def extract_report(
         previous_day_unshipped_groups: Counter[tuple[str, str, str]] = Counter()
         previous_day_unshipped_boxes: Counter[tuple[str, str, str]] = Counter()
         current_day_unshipped_boxes: Counter[str] = Counter()
+        delivery_adjustment = 0
 
         for sheet_name in workbook.sheets:
             if sheet_name.startswith("요약"):
@@ -256,14 +257,27 @@ def extract_report(
             if daily.get(3) != "당일":
                 continue
             order_boxes = as_int(daily.get(6))
+            reported_delivered_boxes = as_int(daily.get(7))
+            unshipped_boxes = as_int(unshipped.get(10))
+            delivered_boxes = reported_delivered_boxes
+            if order_boxes > 0:
+                delivered_boxes = min(reported_delivered_boxes, max(0, order_boxes - unshipped_boxes))
+            delivery_adjustment += reported_delivered_boxes - delivered_boxes
             centers.append({
                 "center_name": center_name,
                 "order_boxes": order_boxes,
-                "delivered_boxes": as_int(daily.get(7)),
+                "delivered_boxes": delivered_boxes,
                 "shortage_boxes": as_int(daily.get(8)),
-                "delivery_rate": float(daily.get(9) or 0),
-                "unshipped_boxes": as_int(unshipped.get(10)),
+                "delivery_rate": (
+                    delivered_boxes / order_boxes if order_boxes > 0 else float(daily.get(9) or 0)
+                ),
+                "unshipped_boxes": unshipped_boxes,
             })
+
+    if delivery_adjustment:
+        summary["delivered_boxes"] = max(0, summary["delivered_boxes"] - delivery_adjustment)
+        if summary["order_boxes"] > 0:
+            summary["delivery_rate"] = summary["delivered_boxes"] / summary["order_boxes"]
 
     for center in centers:
         center_name = center["center_name"]
