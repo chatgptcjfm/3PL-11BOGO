@@ -98,9 +98,19 @@ public class ReportUploadController {
             String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
             if (process.exitValue() != 0) {
                 log.warn("XLSB report import failed: {}", output);
-                String message = output.contains("No report date in filename")
-                        ? "파일명에서 보고일을 찾지 못했습니다. 파일명에 26.10.12 형식의 날짜를 포함해 주세요."
-                        : "엑셀 구조를 읽지 못했습니다. 원본 일일보고 XLSB인지 확인해 주세요.";
+                String message;
+                if (output.contains("No report date in filename")) {
+                    message = "파일명에서 보고일을 찾지 못했습니다. 파일명에 26.10.12 형식의 날짜를 포함해 주세요.";
+                } else if (output.contains("Could not identify the center")
+                        || output.contains("Could not identify center")
+                        || output.contains("identify different centers")
+                        || output.contains("Multiple KPI worksheets")
+                        || output.contains("Unknown center in KPI sheet")
+                        || output.contains("No center KPI sheets")) {
+                    message = "센터를 확인할 수 없거나 같은 센터 시트가 중복됩니다. 파일명이나 시트명에 센터가 명확히 표시된 XLSB를 확인해 주세요.";
+                } else {
+                    message = "엑셀 구조를 읽지 못했습니다. 원본 일일보고 XLSB인지 확인해 주세요.";
+                }
                 return ResponseEntity.badRequest().body(Map.of("message", message));
             }
 

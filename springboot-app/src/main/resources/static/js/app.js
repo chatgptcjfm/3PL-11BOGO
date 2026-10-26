@@ -35,6 +35,10 @@
   const resourceEditSubmitButton = document.getElementById('save-resource-edit');
   const resourceEditTrigger = document.getElementById('resource-edit-trigger');
   const resourcePanel = document.getElementById('resource-panel');
+  const workspaceSidebar = document.getElementById('workspace-sidebar');
+  const sidebarToggle = document.getElementById('sidebar-toggle');
+  const sidebarEdgeToggle = document.getElementById('sidebar-edge-toggle');
+  const sidebarEdgeIcon = document.getElementById('sidebar-edge-icon');
   const causeDetailOverlay = document.getElementById('cause-detail-overlay');
   const causeDetailReasonInput = document.getElementById('cause-detail-reason');
   const causeDetailPasswordInput = document.getElementById('cause-detail-password');
@@ -376,9 +380,13 @@
         || currentCenters[0].centerName;
     }
     selectCenter(activeCenterName);
-    document.getElementById('connected-center-count').textContent = currentCenters.length
-      ? `${currentCenters.length}개 센터`
-      : '보고 없음';
+    const centerCount = currentCenters.length;
+    document.getElementById('connected-center-count').textContent = `${centerCount}/6개 센터`;
+    const completeness = document.getElementById('report-completeness');
+    completeness.hidden = centerCount >= 6;
+    completeness.textContent = centerCount
+      ? `${centerCount}/6개 센터 보고가 접수되었습니다. 현재 요약은 접수된 센터 기준이며, 나머지 센터 보고서를 올리면 자동으로 합산됩니다.`
+      : '아직 센터 보고서가 없습니다. 각 센터의 보고서를 올리면 접수되는 대로 합산됩니다.';
   }
 
   function renderIssues(issues) {
@@ -717,7 +725,7 @@
     uploadOverlay.hidden = false;
     document.body.classList.add('upload-open');
     document.getElementById('open-report-upload').setAttribute('aria-expanded', 'true');
-    setUploadStatus('업로드 후 보고일 기준으로 누적됩니다. 동일 날짜 파일은 재등록 시 갱신됩니다.');
+    setUploadStatus('센터별 파일은 해당 센터만 갱신하며, 취합본은 6개 센터 전체를 갱신합니다. 파일에 센터명이 있어야 합니다.');
     window.requestAnimationFrame(() => uploadFileInput.focus());
   }
 
@@ -729,7 +737,7 @@
     uploadPasswordInput.value = '';
     uploadSubmitButton.disabled = false;
     uploadSubmitButton.textContent = '등록하기';
-    setUploadStatus('업로드 후 보고일 기준으로 누적됩니다. 동일 날짜 파일은 재등록 시 갱신됩니다.');
+    setUploadStatus('센터별 파일은 해당 센터만 갱신하며, 취합본은 6개 센터 전체를 갱신합니다. 파일에 센터명이 있어야 합니다.');
     document.getElementById('open-report-upload').focus();
   }
 
@@ -756,7 +764,7 @@
     if (file && file.size > 10 * 1024 * 1024) {
       setUploadStatus('파일은 10MB 이하만 등록할 수 있습니다.', 'error');
     } else {
-      setUploadStatus('업로드 후 보고일 기준으로 누적됩니다. 동일 날짜 파일은 재등록 시 갱신됩니다.');
+      setUploadStatus('센터별 파일은 해당 센터만 갱신하며, 취합본은 6개 센터 전체를 갱신합니다. 파일에 센터명이 있어야 합니다.');
     }
   });
   uploadForm.addEventListener('submit', async (event) => {
@@ -805,6 +813,38 @@
     }
   });
 
+  function setWorkspaceSidebarHidden(isHidden, persist = true) {
+    document.body.classList.toggle('workspace-sidebar-hidden', isHidden);
+    workspaceSidebar.toggleAttribute('inert', isHidden);
+    workspaceSidebar.setAttribute('aria-hidden', String(isHidden));
+    const label = isHidden ? '왼쪽 메뉴 표시' : '왼쪽 메뉴 숨기기';
+    [sidebarToggle, sidebarEdgeToggle].forEach((toggle) => {
+      toggle.setAttribute('aria-expanded', String(!isHidden));
+      toggle.setAttribute('aria-label', label);
+      toggle.title = label;
+    });
+    sidebarEdgeIcon.textContent = isHidden ? '›' : '‹';
+    if (persist) {
+      try {
+        window.localStorage.setItem('3pl-workspace-sidebar-hidden', String(isHidden));
+      } catch (_) {
+        // The toggle works for this page even when storage is unavailable.
+      }
+    }
+  }
+
+  [sidebarToggle, sidebarEdgeToggle].forEach((toggle) => {
+    toggle.addEventListener('click', () => {
+      const isHidden = document.body.classList.contains('workspace-sidebar-hidden');
+      setWorkspaceSidebarHidden(!isHidden);
+    });
+  });
+  try {
+    setWorkspaceSidebarHidden(window.localStorage.getItem('3pl-workspace-sidebar-hidden') === 'true', false);
+  } catch (_) {
+    setWorkspaceSidebarHidden(false, false);
+  }
+
   document.getElementById('download-report').addEventListener('click', exportReport);
   document.getElementById('guide-action').addEventListener('click', () => showToast('거래처·담당자·자유 메모는 대시보드에 저장하지 않습니다.'));
 
@@ -819,13 +859,7 @@
       }
       populateReportDates(dates);
       document.getElementById('last-sync').textContent = formatDate(dates[dates.length - 1]);
-      let savedDate = '';
-      try {
-        savedDate = window.localStorage.getItem('3pl-report-date') || '';
-      } catch (_) {
-        // Fall through to the most recently imported report.
-      }
-      await loadReport(dates.includes(savedDate) ? savedDate : dates[dates.length - 1]);
+      await loadReport(dates[dates.length - 1]);
     } catch (error) {
       setUnavailable('보고 데이터를 불러오지 못했습니다.');
       showToast(error.message || '보고 데이터 조회 중 오류가 발생했습니다.');
