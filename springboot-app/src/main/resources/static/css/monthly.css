@@ -1,0 +1,85 @@
+.monthly-page .breadcrumb a { color: #8692a0; }
+.monthly-page .breadcrumb a:hover { color: #35465b; }
+.monthly-heading { align-items: flex-end; }
+.month-select-wrap { display: grid; gap: 7px; min-width: 190px; color: #667487; font-size: 13px; font-weight: 700; }
+.month-select-wrap input { min-height: 48px; padding: 0 13px; border: 1px solid #d7dee7; border-radius: 9px; background: #fff; color: #29394e; font-size: 16px; font-weight: 700; }
+.month-select-wrap input:focus-visible { border-color: #86a73b; outline: 3px solid rgba(157,189,69,.18); }
+.monthly-back-link { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border: 1px solid #e5e8ec; border-radius: 7px; background: #fff; color: #536176; font-size: 13px; font-weight: 700; }
+.monthly-back-link:hover { border-color: #cbd2dc; background: #f9fafb; }
+.monthly-banner { position: relative; display: flex; align-items: center; gap: 17px; min-height: 116px; padding: 22px 25px; overflow: hidden; border: 1px solid #253650; border-radius: 12px; background: linear-gradient(110deg,#17253a 0%,#202f45 62%,#263a4d 100%); color: #fff; box-shadow: 0 5px 18px rgba(20,34,53,.09); }
+.monthly-banner-icon { position: relative; z-index: 1; display: grid; place-items: center; flex: 0 0 48px; width: 48px; height: 48px; border: 1px solid rgba(214,245,104,.28); border-radius: 14px; background: rgba(214,245,104,.09); color: #d6f568; font-size: 26px; }
+.monthly-banner-copy { position: relative; z-index: 1; min-width: 0; }
+.monthly-kicker { margin-bottom: 5px; color: #a9b6c5; font-size: 12px; font-weight: 700; letter-spacing: 1.1px; }
+.monthly-kicker span { padding: 0 5px; color: #64748a; }
+.monthly-kicker strong { color: #d6f568; }
+.monthly-banner h2 { margin: 0; color: #f3f6f8; font-size: 21px; font-weight: 750; }
+.monthly-banner p { margin: 5px 0 0; color: #a9b6c5; font-size: 13px; }
+.monthly-banner-mark { position: absolute; right: 26px; bottom: -23px; color: rgba(255,255,255,.045); font-size: clamp(48px,8vw,100px); font-weight: 800; letter-spacing: -5px; }
+.monthly-error[hidden] { display: none !important; }
+.monthly-error { padding: 12px 15px; margin-top: 13px; border: 1px solid #f0d5d3; border-radius: 8px; background: #fff5f3; color: #b9433d; font-size: 13px; }
+.monthly-kpi-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 13px; margin: 16px 0; }
+.monthly-kpi-card { min-width: 0; min-height: 139px; padding: 17px 19px; border: 1px solid #e7ebef; border-radius: 10px; background: #fff; box-shadow: 0 2px 8px rgba(30,42,60,.025); }
+.monthly-kpi-heading { display: flex; align-items: center; justify-content: space-between; color: #697687; font-size: 14px; font-weight: 650; }
+.metric-icon { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 8px; font-size: 15px; font-style: normal; font-weight: 800; }
+.metric-blue { background: #edf3ff; color: #4678df; }
+.metric-indigo { background: #f0efff; color: #7165cc; }
+.metric-red { background: #fff0f0; color: #df595e; }
+.metric-amber { background: #fff5e8; color: #d9901d; }
+.monthly-kpi-value { display: flex; align-items: baseline; gap: 4px; margin-top: 13px; color: #1c293b; }
+.monthly-kpi-value strong { overflow: hidden; font-size: 31px; font-weight: 800; letter-spacing: -1px; text-overflow: ellipsis; }
+.monthly-kpi-value span { flex: 0 0 auto; color: #788394; font-size: 13px; font-weight: 650; }
+.monthly-kpi-note { margin-top: 5px; color: #9099a6; font-size: 12px; }
+.monthly-panel { min-width: 0; overflow: hidden; border: 1px solid #e7ebef; border-radius: 10px; background: #fff; box-shadow: 0 2px 8px rgba(30,42,60,.025); }
+.monthly-panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 19px 20px 15px; }
+.monthly-panel-heading h2 { margin: 6px 0 4px; color: #202c3e; font-size: 20px; font-weight: 750; letter-spacing: -.3px; }
+.monthly-panel-heading p { margin: 0; color: #929ba8; font-size: 13px; line-height: 1.5; }
+.monthly-count { flex: 0 0 auto; padding: 7px 9px; border: 1px solid #e4e9ef; border-radius: 6px; background: #f8fafc; color: #68778a; font-size: 12px; font-weight: 700; }
+.monthly-table-wrap { width: 100%; overflow-x: auto; }
+.monthly-table { width: 100%; min-width: 730px; border-collapse: collapse; text-align: left; }
+.monthly-table thead { background: #f8f9fb; }
+.monthly-table th { height: 42px; padding: 0 13px; border-top: 1px solid #edf0f3; border-bottom: 1px solid #edf0f3; color: #7e8998; font-size: 13px; font-weight: 650; white-space: nowrap; }
+.monthly-table td { height: 51px; padding: 8px 13px; border-bottom: 1px solid #f0f2f4; color: #546173; font-size: 13px; white-space: nowrap; }
+.monthly-table tbody tr:last-child td { border-bottom: 0; }
+.monthly-table tbody tr:hover:not(:has(.monthly-empty)) { background: #fbfcfd; }
+.monthly-center-name { color: #344154 !important; font-weight: 700; }
+.monthly-rate-cell { color: #315da9 !important; font-weight: 750; }
+.monthly-empty { height: 100px !important; color: #8792a0 !important; text-align: center; }
+.monthly-detail-grid { display: grid; grid-template-columns: minmax(0,1.12fr) minmax(0,.88fr); gap: 15px; margin-top: 15px; }
+.issue-monthly-table { min-width: 550px; }
+.daily-monthly-table { min-width: 470px; }
+.monthly-issue-stockout { color: #d75e63 !important; font-weight: 700; }
+.monthly-issue-shipping { color: #c58a30 !important; font-weight: 700; }
+.monthly-cause { color: #42536a !important; font-weight: 650; }
+.monthly-date-cell { color: #36465b !important; font-weight: 700; }
+.monthly-coverage-complete { color: #248361 !important; font-weight: 750; }
+.monthly-coverage-partial { color: #b27b22 !important; font-weight: 700; }
+.monthly-footnote { display: flex; align-items: flex-start; gap: 10px; padding: 13px 15px; margin-top: 15px; border: 1px solid #e7ebd6; border-radius: 9px; background: linear-gradient(100deg,#fbfcf5,#fff); color: #78836d; font-size: 12px; line-height: 1.6; }
+.monthly-footnote strong { flex: 0 0 auto; color: #53643b; }
+.monthly-page .page-footer { margin-top: 3px; }
+
+@media (max-width: 1040px) {
+  .monthly-kpi-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .monthly-detail-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .monthly-heading { align-items: flex-start; }
+  .month-select-wrap { width: 100%; }
+  .month-select-wrap input { width: 100%; min-height: 52px; }
+  .monthly-banner { align-items: flex-start; padding: 18px; }
+  .monthly-banner-icon { flex-basis: 42px; width: 42px; height: 42px; }
+  .monthly-banner h2 { font-size: 18px; }
+  .monthly-banner p { font-size: 12px; }
+  .monthly-kpi-card { min-height: 129px; padding: 14px; }
+  .monthly-kpi-value strong { font-size: 26px; }
+  .monthly-panel-heading { padding: 16px 14px 13px; }
+  .monthly-footnote { flex-direction: column; gap: 3px; }
+}
+@media (max-width: 480px) {
+  .monthly-kpi-grid { gap: 8px; }
+  .monthly-kpi-card { min-height: 122px; padding: 12px; }
+  .monthly-kpi-heading { font-size: 12px; }
+  .monthly-kpi-value strong { font-size: 23px; }
+  .monthly-kpi-value span { font-size: 11px; }
+  .monthly-kpi-note { font-size: 10px; }
+  .monthly-count { font-size: 10px; }
+}

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f6f8">
+  <meta name="description" content="3PL 센터별 월간 출고 실적과 결품·미배송 집계">
+  <title>한달치 요약 | 3PL Control Tower</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/app.css?v=monthly-summary-1">
+  <link rel="stylesheet" href="/css/monthly.css?v=monthly-summary-1">
+</head>
+<body class="monthly-page">
+  <div class="app-shell">
+    <aside class="sidebar" id="workspace-sidebar" aria-label="주 메뉴">
+      <a class="brand" href="/" aria-label="3PL Control Tower 통합 현황">
+        <span class="brand-mark">3</span>
+        <span class="brand-copy"><strong>control<span>tower</span></strong><small>3PL OPERATIONS</small></span>
+      </a>
+      <div class="sidebar-label">WORKSPACE</div>
+      <nav class="side-nav" aria-label="워크스페이스 메뉴">
+        <a class="side-link" href="/"><span class="nav-icon">◫</span><span>통합 현황</span></a>
+        <a class="side-link" href="/#issues"><span class="nav-icon">⌁</span><span>결품 · 미배송</span></a>
+        <a class="side-link" href="/#center-status-panel"><span class="nav-icon">◎</span><span>센터 현황</span></a>
+        <a class="side-link is-active" href="/monthly-summary.html" aria-current="page"><span class="nav-icon">▦</span><span>한달치 요약</span><span class="nav-current"></span></a>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="help-card">
+          <span class="help-orbit">?</span>
+          <strong>월간 집계 안내</strong>
+          <p>등록된 일일보고를 기준으로 선택한 달의 센터별 실적을 합산합니다.</p>
+          <a href="/">일일 현황으로 돌아가기 <span>↗</span></a>
+        </div>
+        <div class="user-card">
+          <span class="avatar">이</span>
+          <span class="user-meta"><strong>이정헌</strong><small>물류팀 · 관리자</small></span>
+          <span class="user-more">···</span>
+        </div>
+      </div>
+    </aside>
+    <button class="sidebar-edge-toggle" id="sidebar-edge-toggle" type="button" aria-controls="workspace-sidebar" aria-expanded="true" aria-label="왼쪽 메뉴 숨기기" title="왼쪽 메뉴 숨기기"><span id="sidebar-edge-icon" aria-hidden="true">‹</span></button>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div class="topbar-leading">
+          <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-controls="workspace-sidebar" aria-expanded="true" aria-label="왼쪽 메뉴 숨기기" title="왼쪽 메뉴 숨기기">
+            <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
+          </button>
+          <div class="breadcrumb"><a href="/">운영관리</a><span class="crumb-divider">/</span><strong>한달치 요약</strong></div>
+        </div>
+        <div class="topbar-actions">
+          <span class="demo-badge"><i></i> MONTHLY REPORT</span>
+          <a class="monthly-back-link" href="/">일일 현황</a>
+        </div>
+      </header>
+
+      <div class="page-wrap">
+        <section class="page-heading monthly-heading">
+          <div>
+            <div class="eyebrow"><span class="eyebrow-line"></span> MONTHLY OPERATIONS</div>
+            <h1>한달치 요약 <span class="heading-tag">월간 리포트</span></h1>
+            <p class="page-subtitle">등록된 일일보고를 모아 월간 출고 실적과 센터별 이슈를 확인합니다.</p>
+          </div>
+          <label class="month-select-wrap" for="month-select"><span>요약 기준 월</span><input id="month-select" type="month" aria-label="요약 기준 월"></label>
+        </section>
+
+        <section class="monthly-banner" aria-label="월간 보고 범위">
+          <div class="monthly-banner-icon" aria-hidden="true">▦</div>
+          <div class="monthly-banner-copy">
+            <div class="monthly-kicker">MONTHLY REPORT <span>·</span> <strong id="selected-month-label">—</strong></div>
+            <h2 id="monthly-headline">월간 보고 데이터를 불러오는 중입니다.</h2>
+            <p id="monthly-coverage" role="status" aria-live="polite">등록된 보고일과 센터 접수 범위를 확인하고 있습니다.</p>
+          </div>
+          <div class="monthly-banner-mark" aria-hidden="true">MONTH</div>
+        </section>
+
+        <div class="monthly-error" id="monthly-error" role="alert" hidden></div>
+
+        <section class="monthly-kpi-grid" aria-label="월간 주요 지표">
+          <article class="monthly-kpi-card">
+            <div class="monthly-kpi-heading"><span>월간 납기율</span><i class="metric-icon metric-blue">↗</i></div>
+            <div class="monthly-kpi-value"><strong id="month-delivery-rate">—</strong><span>%</span></div>
+            <div class="monthly-kpi-note">총 납품량 ÷ 총 주문량</div>
+          </article>
+          <article class="monthly-kpi-card">
+            <div class="monthly-kpi-heading"><span>주문량 합계</span><i class="metric-icon metric-indigo">▤</i></div>
+            <div class="monthly-kpi-value"><strong id="month-order-boxes">—</strong><span>BOX</span></div>
+            <div class="monthly-kpi-note">등록된 보고일 기준 합산</div>
+          </article>
+          <article class="monthly-kpi-card">
+            <div class="monthly-kpi-heading"><span>결품량 합계</span><i class="metric-icon metric-red">!</i></div>
+            <div class="monthly-kpi-value"><strong id="month-shortage-boxes">—</strong><span>BOX</span></div>
+            <div class="monthly-kpi-note">일일 요약에 기록된 수량</div>
+          </article>
+          <article class="monthly-kpi-card">
+            <div class="monthly-kpi-heading"><span>미배송량 합계</span><i class="metric-icon metric-amber">↗</i></div>
+            <div class="monthly-kpi-value"><strong id="month-unshipped-boxes">—</strong><span>BOX</span></div>
+            <div class="monthly-kpi-note">일일 요약에 기록된 수량</div>
+          </article>
+        </section>
+
+        <section class="monthly-panel" aria-labelledby="monthly-centers-title">
+          <div class="monthly-panel-heading">
+            <div><div class="section-eyebrow">CENTER PERFORMANCE</div><h2 id="monthly-centers-title">센터별 월간 실적</h2><p>센터별 보고가 접수된 날짜의 합계입니다. 경남센터(제지)는 원본 단위인 KG로 표시합니다.</p></div>
+            <span class="monthly-count" id="center-report-count">센터 보고 —</span>
+          </div>
+          <div class="monthly-table-wrap">
+            <table class="monthly-table">
+              <thead><tr><th>센터</th><th>보고일</th><th>주문량</th><th>납품량</th><th>납기율</th><th>결품량</th><th>미배송량</th></tr></thead>
+              <tbody id="monthly-center-rows"><tr><td colspan="7" class="monthly-empty">월간 데이터를 불러오는 중입니다.</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="monthly-detail-grid">
+          <section class="monthly-panel" aria-labelledby="monthly-issues-title">
+            <div class="monthly-panel-heading">
+              <div><div class="section-eyebrow">TOP ISSUE CAUSES</div><h2 id="monthly-issues-title">주요 이슈 원인</h2><p>월간 누적 건수 상위 10개 원인입니다.</p></div>
+            </div>
+            <div class="monthly-table-wrap">
+              <table class="monthly-table issue-monthly-table">
+                <thead><tr><th>센터</th><th>유형</th><th>원인</th><th>건수</th><th>수량</th></tr></thead>
+                <tbody id="monthly-issue-rows"><tr><td colspan="5" class="monthly-empty">월간 데이터를 불러오는 중입니다.</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="monthly-panel" aria-labelledby="monthly-daily-title">
+            <div class="monthly-panel-heading">
+              <div><div class="section-eyebrow">DAILY BREAKDOWN</div><h2 id="monthly-daily-title">일자별 추이</h2><p>보고일마다 센터 접수 수와 주요 수량을 표시합니다.</p></div>
+            </div>
+            <div class="monthly-table-wrap">
+              <table class="monthly-table daily-monthly-table">
+                <thead><tr><th>보고일</th><th>센터 접수</th><th>주문량</th><th>납기율</th><th>미배송</th></tr></thead>
+                <tbody id="monthly-day-rows"><tr><td colspan="5" class="monthly-empty">월간 데이터를 불러오는 중입니다.</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <div class="monthly-footnote"><strong>집계 기준</strong><span>월간 수량은 등록된 각 일자의 요약값을 합산합니다. 일부 센터만 접수된 날짜도 포함되므로, 상단의 보고 범위와 센터 접수 현황을 함께 확인해 주세요. 경남센터(제지)는 KG 단위라 BOX 단위 월간 KPI 합계에서 제외됩니다.</span></div>
+        <footer class="page-footer"><span>3PL CONTROL TOWER <b>·</b> MONTHLY REPORT</span><span>보고서가 등록된 날짜만 월간 집계에 포함됩니다.</span></footer>
+      </div>
+    </main>
+  </div>
+  <script src="/js/monthly-summary.js?v=monthly-summary-1" defer></script>
+</body>
+</html>

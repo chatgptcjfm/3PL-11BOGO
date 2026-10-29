@@ -550,11 +550,15 @@
     });
   });
   activateDashboardTab(dashboardTabs[0]);
-  document.getElementById('center-status-link').addEventListener('click', (event) => {
-    event.preventDefault();
+  function openCenterStatusPanel(event) {
+    event?.preventDefault();
     activateDashboardTab(document.getElementById('tab-centers'));
     document.getElementById('center-status-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
+  }
+  document.getElementById('center-status-link').addEventListener('click', openCenterStatusPanel);
+  if (window.location.hash === '#center-status-panel') {
+    window.requestAnimationFrame(() => openCenterStatusPanel());
+  }
 
   centerTabs.forEach((tab, index) => {
     tab.addEventListener('click', () => selectCenter(tab.dataset.centerName));
